@@ -1,0 +1,89 @@
+<html>
+  <head>
+    <input id="input" type="file" accept="text/*">
+
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+
+    var res_data = undefined
+    var inputEl = document.querySelector('#input');
+    let g_data_table = undefined
+
+
+    function update_table() {
+        var table = new google.visualization.Table(document.getElementById('table_div'));
+        table.draw(g_data_table, {showRowNumber: true, allowHtml: true});
+    }
+
+    inputEl.addEventListener('change', function (event) {
+        var fileList = inputEl.files || event.target.files;
+        var file = fileList[0];
+        var reader = new FileReader();
+        reader.onload = function(progressEvent) {
+            res_data = progressEvent.target.result
+        };
+
+        reader.readAsText(file);
+
+        function update() {
+            if (res_data == undefined) {
+                setTimeout(update, 100);
+                return
+            }
+
+            items = []
+            const res_obj = JSON.parse(res_data);
+            pre_dir = undefined
+            pre_file = undefined
+            pre_clz = undefined
+
+            for (var dir in res_obj) {
+                //console.log(dir)
+
+                for (var file in res_obj[dir]) {
+                    //console.log(file)
+
+                    for (var clz in res_obj[dir][file]) {
+                        //console.log(clz)
+                        violates = res_obj[dir][file][clz]
+                        for (var i = 0; i < violates.length; ++i) {
+                            //console.log(violates[i])
+                            d = pre_dir != dir ? dir : ""
+                            f = pre_file != file ? file : ""
+                            c = pre_clz != clz ? clz : ""
+                            items.push([d, f, c, violates[i]])
+
+                            pre_clz = clz
+                            pre_file = file
+                            pre_dir = dir
+                        }
+                    }
+                }
+            }
+
+            g_data_table.addRows(items);
+            update_table()
+        }
+
+        setTimeout(update, 100);
+    });
+
+    google.charts.load('current', {'packages':['table']});
+    google.charts.setOnLoadCallback(drawTable);
+
+    function drawTable() {
+        var data_table = new google.visualization.DataTable();
+        data_table.addColumn('string', 'directory');  // 'number', 'boolean', ...
+        data_table.addColumn('string', 'file');
+        data_table.addColumn('string', 'class');
+        data_table.addColumn('string', 'violate');
+        //data_table.setProperty(0, 0, 'style', 'width:300px');
+        g_data_table = data_table
+    }
+
+    </script>
+    </head>
+    <body>
+        <div id="table_div"></div>
+    </body>
+</html>
