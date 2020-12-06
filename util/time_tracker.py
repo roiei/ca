@@ -31,6 +31,7 @@ class TimeTracker:
     def get_total_time(cls, marker: 'key') -> 'time in second':
         if not cls.times[marker][TimeElapseType.START] or not cls.times[marker][TimeElapseType.END]:
             return -1
+
         return cls.times[marker][TimeElapseType.END] - cls.times[marker][TimeElapseType.START]
 
     @classmethod

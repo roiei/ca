@@ -34,7 +34,3 @@ class SyntaxParser:
 
     def get_code(self, file):
         return
-
-
-
-

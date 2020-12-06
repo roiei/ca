@@ -831,8 +831,6 @@ class CppHeaderParser(SyntaxParser):
     def get_doxy_comment_method_chunks(self, code):
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
         res = []
-
-        num_lines = code.count('\n')
         n = len(code)
 
         i = 0

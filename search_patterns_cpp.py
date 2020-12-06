@@ -85,4 +85,3 @@ class SearchPatternCpp:
             return: regex pattern
         """
         return SearchPatternCpp.patterns[keyword]
-

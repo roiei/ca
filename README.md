@@ -153,6 +153,8 @@ you can see the result with the web browser as follow by enabling "json_output" 
   * verify codes located in the give path
 * enum
   * enumerate all the method in cpp header file
+* verify_comment
+  * verify doxygen comment
 
 
 &nbsp;
