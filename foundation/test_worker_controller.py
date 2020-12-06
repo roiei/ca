@@ -9,7 +9,7 @@ class CustomeWorkerCmd(Enum):
 def handler(name, cmd, data):
     print('+handler')
     if CustomeWorkerCmd.TEST1 == cmd:
-        print(name, ' got TEST1 cmd, data to process = ', data)
+        print(name, ': got TEST1 cmd, data to process = ', data)
         return True
 
     print('error: UNDEF. cmd = ', cmd)

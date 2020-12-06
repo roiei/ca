@@ -79,7 +79,6 @@ def print_rule_miss_result(reports, res_dirs, cfg):
 
     num_missings = sum(report.violate_cnt for report in reports)
     if num_missings:
-        #print('MISS {}:'.format(num_missings))
         if report_detail:
             print_missing_rules(res_dirs, num_missings, cfg)
 

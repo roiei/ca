@@ -9,4 +9,3 @@ class Cmd:
 
     def execute(self, opts, cfg):
         pass
-

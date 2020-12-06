@@ -17,7 +17,6 @@ from util.platform_info import *
 def override_cfg(cfg, opts):
     if 'recursive' not in opts:
         return 
-    #print(opts['recursive'])
     recur = False
     if 'True' == opts['recursive']:
         recur = True
@@ -30,23 +29,24 @@ if sys_ver_info < (3, 5, 0):
         format(*sys_ver_info))
 
 
-cmd_handlers = {}
-cmd_handlers['help'] = (
+cmd_handlers = {
+    'help': (
         HelpHandler(), 
         '--cmd=help'
-    )
-cmd_handlers['verify'] = (
+    ),
+    'verify': (
         CPPVerificationHandler(), 
         '--cmd=verify --path=./'
-    )
-cmd_handlers['enum'] = (
+    ),
+    'enum': (
         EnumerateCPPMethodHandler(), 
         '--cmd=enum --path=./'
-    )
-cmd_handlers['verify_comment'] = (
+    ),
+    'verify_comment': (
         DoxygenVerificationHandler(),
         '--cmd=verify_comment --path=./'
     )
+}
 
 
 def print_cmd_help(cmd_handlers):
@@ -77,7 +77,7 @@ def execute_handler(cmd, opts, cfg):
 def execute(cmd, opts):
     delimeter = PlatformInfo.get_delimiter()
     cfg_reader = ConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
-        delimeter + '/cfg_csi.conf')
+        delimeter + 'cfg_csi.conf')
     csi_cfg_json = cfg_reader.readAsJSON()
     cfg = cfg_reader.getConfig(csi_cfg_json)
     override_cfg(cfg, opts)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         cmd = opts["cmd"]
     except KeyError:
         print('ERROR: wrong parameter')
-        print_help(sys.argv)
+        print_cmd_help(cmd_handlers)
         sys.exit()
     
     ret = execute(cmd, opts)

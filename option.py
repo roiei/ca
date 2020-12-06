@@ -15,4 +15,3 @@ def get_opts(args):
 
     print(opts, end='\n\n')
     return opts
-

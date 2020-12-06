@@ -6,7 +6,6 @@ from worker_process import *
 #process.daemon = True  # terminate all the child processes when the parent dies
 
 
-
 class CustomeWorkerCmd(Enum):
     TEST1 = 1
     TEST2 = 2

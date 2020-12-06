@@ -86,7 +86,7 @@ class ConfigReader:
     def __init__(self, cfg_url):
         self.cfg_url = cfg_url
 
-    def __deinit__(self):
+    def __del__(self):
         pass
 
     def readAsText(self):

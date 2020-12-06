@@ -73,7 +73,6 @@ class Worker:
             elif WorkerCmd.SET_ARGS == cmd:
                 handler, handler_ctx = data
             elif WorkerCmd.REQUEST_RESPONSE == cmd:
-                #print('cmd == WorkerCmd.REQUEST_RESPONSE')
                 data.notify((WorkerResult.DONE, self.err_items))
                 self.err_items = []
             else:

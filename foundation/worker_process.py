@@ -164,7 +164,6 @@ class WorkerProc:
         prog_cnt.value += request_status.unit_cnt   # need to protect it by mutex ?
 
         self.prog_bar.print_progress_bar(prog_cnt.value/prog_num.value*100)
-
         if not request_status.req_cnt:
             return
 

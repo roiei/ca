@@ -28,6 +28,9 @@ class FileResult:
         self.num_missings += len(info)
 
     def get_clz_type(self, clz):
+        if clz not in self.clz_type:
+            return None
+
         return self.clz_type[clz]
 
     def get_missing_num(self):

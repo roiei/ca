@@ -588,7 +588,6 @@ class CppHeaderParser(SyntaxParser):
         if clz_type not in [ClassType.REGULAR, ClassType.ABSTRACT, ClassType.SINGLETON]:
             return None
 
-        #print('class {}: \n{}'.format(clz, clz_codes[clz]))
         done = collections.defaultdict(bool)
 
         for pname, pattern in SearchPatternCpp.get_pattern_rof():
@@ -597,7 +596,6 @@ class CppHeaderParser(SyntaxParser):
 
             res = pattern.search(clz_codes[clz])
             if res:
-                #print(clz_codes[clz][res.span()[0] - 100 : res.span()[1]])
                 done[pname] = True
 
         return done
@@ -615,7 +613,6 @@ class CppHeaderParser(SyntaxParser):
 
             res = pattern.search(clz_codes[clz])
             if not res:
-                #print(clz_codes[clz][res.span()[0] - 100 : res.span()[1]])
                 done[pname] = True
 
         return done
@@ -633,7 +630,6 @@ class CppHeaderParser(SyntaxParser):
 
             res = pattern.search(clz_codes[clz])
             if not res:
-                #print(clz_codes[clz][res.span()[0] - 100 : res.span()[1]])
                 done[pname] = True
 
         return done
@@ -674,7 +670,6 @@ class CppHeaderParser(SyntaxParser):
              pattern_name2:False]   <-- not defined class
         """
         if ClassType.UNDEFINED == clz_type:
-            #print('clz = ' + clz + ' is undefiend')
             return {'UNDEFINED class type' : False}
         return {'UNDEFINED class type' : True}
 
@@ -720,7 +715,6 @@ class CppHeaderParser(SyntaxParser):
         res = {}
         num_limit = cfg.get_num_of_public_func()
 
-        #print(clz_methods.keys())
         num_func = len(clz_methods['public method'])
         if num_func >= num_limit:
             return {"violate_modularity" + f" -> num public methods {num_func}": False}
@@ -829,7 +823,6 @@ class CppHeaderParser(SyntaxParser):
             clz_type = self.__get_clz_type(clz, clz_codes[clz])
             SearchPatternCpp.reset_patterns(clz)
 
-            #code = self.__remove_code_in_header(clz, code)
             methods = self.__get_class_methods_attrs(clz, clz_codes[clz])
             clz_methods[clz] = methods
 
@@ -856,9 +849,6 @@ class CppHeaderParser(SyntaxParser):
 
         m = re.finditer(comment_pattern, code)
         m = list(m)
-
-        # pos_line = [(100, 1) (150, 2), (...)]
-        #       111
 
         patt = re.compile('@\s*param\[\s*(in|out)\s*\]')
         method_m = []
@@ -917,16 +907,12 @@ class CppHeaderParser(SyntaxParser):
         if RetType.ERROR == ret:
             return ret, errs
 
-        # print('code_params = ', code_params)
-        # print('doxy_params = ', doxy_params)
-
         for code_param in code_params:
             if code_param not in doxy_params:
                 errs += 'ERROR: \'' + code_param + '\' is not documented',
                 res = RetType.ERROR
 
         for doxy_param_name in doxy_params:
-            #print(doxy_param_name, code_params)
             if doxy_param_name not in code_params:
                 errs += 'ERROR: \'' + doxy_param_name + \
                     '\' does not exist in the code',

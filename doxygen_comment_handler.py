@@ -7,6 +7,9 @@ class DoxygenVerificationHandler(Cmd):
     def __init__(self):
         pass
 
+    def __del__(self):
+        pass
+
     def execute(self, opts, cfg):
         locations = UtilFile.get_dirs_files(opts["path"], \
             cfg.get_recursive(), cfg.get_extensions())

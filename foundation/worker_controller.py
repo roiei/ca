@@ -47,18 +47,11 @@ class WorkerController:
         for i in range(self.num_worker):
             self.procs[str(i)].connector.in_queue.put((WorkerCmd.SET_HANDLER, (handler, handler_ctx)))
 
-        # for i in range(self.num_worker):
-        #     self.procs[str(i)].connector.in_queue.put((WorkerCmd.SET_SHARED_CTX, prog_cnt))
-        #self.procs[str(0)].connector.in_queue.put((WorkerCmd.SET_SHARED_CTX, prog_cnt))
-
         i = 0
         while i < self.num_worker:
             start = int(i*chunk)
             end = n if i == self.num_worker - 1 else int(i*chunk + chunk)
             thr = str(i)
-            #print('thr = {}, start = {}, end = {}'.format(self.num_worker, start, end))
-
-            #self.procs[thr].connector.in_queue.put((WorkerCmd.EXPECT_ELAPSE_TIME, True))
 
             for job_idx in range(start, end):
                 try:
@@ -69,7 +62,6 @@ class WorkerController:
                 self.procs[thr].connector.in_queue.put((WorkerCmd.PRINT_PROGRESS, 
                         overall_prog))
 
-            #self.procs[thr].connector.in_queue.put((WorkerCmd.EXPECT_ELAPSE_TIME, False))
             i += 1
 
     def distribute_batch_job(self, items, cmd, overall_prog, handler, handler_ctx=None):
@@ -83,15 +75,10 @@ class WorkerController:
         for i in range(self.num_worker):
             self.procs[str(i)].connector.in_queue.put((WorkerCmd.SET_HANDLER, (handler, handler_ctx)))
 
-        # for i in range(self.num_worker):
-        #     self.procs[str(i)].connector.in_queue.put((WorkerCmd.SET_SHARED_CTX, prog_cnt))
-        #self.procs[str(0)].connector.in_queue.put((WorkerCmd.SET_SHARED_CTX, prog_cnt))
-
         i = 0
         while i < self.num_worker:
             start = int(i*chunk)
             end = n if i == self.num_worker - 1 else int(i*chunk + chunk)
-            #print('thr = {}, start = {}, end = {}'.format(self.num_worker, start, end))
 
             self.procs[str(i)].connector.in_queue.put((cmd, items[start:end]))
             self.procs[str(i)].connector.in_queue.put((WorkerCmd.PRINT_PROGRESS, overall_prog))
@@ -104,7 +91,6 @@ class WorkerController:
 
         for i in range(self.num_worker):
             res, data = self.procs[str(i)].connector.out_queue.get()
-            #print('got resp for thread', i)
             name, request_status = data
 
             if WorkerResult.DONE != res:

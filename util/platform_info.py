@@ -7,8 +7,7 @@ class PlatformInfo:
 
     @staticmethod
     def is_Linux():
-        plt = platform.system()
-        return 'Linux' in plt
+        return 'Linux' in platform.system()
 
     @staticmethod
     def get_delimiter():

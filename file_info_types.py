@@ -7,4 +7,5 @@ class ClassType(Enum):
     ABSTRACT = 3
     STATIC = 4
     SINGLETON = 5
-    UNDEFINED = 6
+    ENTITY = 6
+    UNDEFINED = 7

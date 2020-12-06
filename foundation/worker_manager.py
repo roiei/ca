@@ -70,8 +70,6 @@ class WorkerManager:
                     print(err_items)
                 errs += err_items
 
-        print('-do_requests')
-
         if cnt < num_thr:
             print('error: there is threads haven\'t notified yet')
 

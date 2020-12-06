@@ -10,6 +10,9 @@ class Trie:
         self.root = Letter('*')
         self.mn_prefix_len = float('inf')
 
+    def __del__(self):
+        pass
+
     def insert(self, word: str) -> None:
         cur = self.root
         idx = 0
@@ -40,17 +43,14 @@ class Trie:
         return True
 
     def is_registered_suffix_exist(self, word: str) -> bool:
-        #print('word = ', word)
         violate_suffix = ''
         cur = self.root
         idx = 0
         for ch in word:
-            #print(ch)
             if ch not in cur.child:
                 break
             cur = cur.child[ch]
             violate_suffix += ch
             idx += 1
 
-        #print(len(word), self.mn_prefix_len, idx)
         return (True, violate_suffix) if self.mn_prefix_len == idx else (False, '')

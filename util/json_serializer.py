@@ -64,6 +64,3 @@ class JSonSerializer:
         #     print()
 
         return dirs
-
-
-#JSonSerializer.serialize_to_json()
