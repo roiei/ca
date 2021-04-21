@@ -11,6 +11,7 @@ from util.time_tracker import *
 from doxygen_comment_handler import *
 from verify_handler import *
 from enum_handler import *
+from dependency_analysis_handler import *
 from util.platform_info import *
 
 
@@ -45,6 +46,10 @@ cmd_handlers = {
     'verify_comment': (
         DoxygenVerificationHandler(),
         '--cmd=verify_comment --path=./'
+    ),
+    'dependency': (
+        DependencyAnalysisHandler(),
+        '--cmd=dependency --path=./'
     )
 }
 
