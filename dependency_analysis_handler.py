@@ -1,10 +1,9 @@
-import matplotlib.pyplot as plt
 from cmd_interface import *
 from util.util_file import *
 import re
 import copy
-import sys, networkx as nx, matplotlib.pyplot as plt
 import collections
+from visualization.networkx_adapter import *
 
 
 class BuildScriptParser:
@@ -22,40 +21,48 @@ class ModuleInfo:
         self.name = ''
         self.type = ''
         self.dependency = set()
+        self.depth = 0
 
 
 class CMakeBuildScriptParser:
     types = {
-        "APP_NAME": "APP",
-        "LIB_NAME": "LIB",
-        "SERVICE_NAME": "SVC"
+        "APP_NAME": ("APP", 0),
+        "LIB_NAME": ("LIB", 1),
+        "SERVICE_NAME": ("SVC", 2)
     }
 
     @staticmethod
-    def _parse_outputname(line, g, param):
+    def _parse_outputname(line, g, param, url):
         #print('line = ', line)
         sx = line.find('(')
         ex = line.rfind(')')
-        line = line[sx + 1: ex]
+        if sx != -1 and sx < ex:
+            line = line[sx + 1: ex]
         words = line.split(' ')
         type_str, name = words
         type_str = type_str.strip()
         name = name.strip()
 
-        type = CMakeBuildScriptParser.types.get(type_str)
-        if not type:
+        value = CMakeBuildScriptParser.types.get(type_str, ('NONE', 10))
+        type, depth = value
+        if type == 'NONE':
             return
 
         # print('type = ', type)
         # print('name = ', name)
-        if type in g:
-            print('type {} already exist'.foramt(type))
+
+        # if name == 'GIOMM_LIBRARIES':
+        #     print(url)
+        #     print(param)
+
+        if name in g:
+            print('name {} already exist'.format(name))
             return
 
         g[name] = ModuleInfo()
         g[name].name = name
         g[name].type = type
-        #print(name)
+        g[name].depth = depth
         return name
 
     @staticmethod
@@ -65,8 +72,8 @@ class CMakeBuildScriptParser:
         content = line[sx + 1:ex].split()
 
         debug = False
-        if 'vehicleservice' == param:
-            debug = True
+        # if 'vehicleservice' == param:
+        #     debug = True
 
         filtered = []
         for item in content:
@@ -75,15 +82,21 @@ class CMakeBuildScriptParser:
                 '${LIBRARY_NAME}', 'SHARED', 
                 '${STATICLIB_NAME}', 'STATIC'}:
                 continue
+
             if '{' in item:
                 sx = item.find('{')
                 ex = item.rfind('}')
                 item = item[sx + 1:ex]
+
             item = item.strip()
             filtered += item,
             if 'LDFLAGS' in item:
                 ex = item.rfind('_LDFLAGS')
                 item = item[:ex].lower()
+
+            if '' == item or not item:
+                print('1. empty string')
+
             g[param].dependency.add(item)
             if debug:
                 print('vehicleservice ++ ', item)
@@ -122,7 +135,7 @@ class CMakeBuildScriptParser:
             span = r.span()
             #print(content[span[0]:span[1]])
             res = CMakeBuildScriptParser._parse_outputname(
-                content[span[0]:span[1]], g, oname)
+                content[span[0]:span[1]], g, oname, url)
 
             if '' != res and None != res:
                 oname = res
@@ -166,6 +179,8 @@ class DependencyAnalysisHandler(Cmd):
             else:
                 for u in g2[node].dependency:
                     if u not in g1[node].dependency:
+                        if '' == u or not u:
+                            print('2. empty string')
                         g1[node].dependency.add(u)
 
     def execute(self, opts, cfg):
@@ -195,16 +210,14 @@ class DependencyAnalysisHandler(Cmd):
                 
                 if graph:
                     self.merge_graph(dep_graph, graph)
+                #print()
 
-                print()
-
-        print('+traverse')
-        self.traverse_graph(dep_graph)
-        print()
+        #print('+traverse')
+        #self.traverse_graph(dep_graph)
+        #print()
 
         edges = self.get_links(dep_graph)
-        self.draw_graph(dep_graph.keys(), edges)
-
+        NetworkX.draw_layered_diagram(dep_graph, edges)
         return True
 
     def traverse_graph(self, g):
@@ -233,13 +246,7 @@ class DependencyAnalysisHandler(Cmd):
                 if cur_infound[u]:
                     cur_infound[u] -= 1
 
-                #if not cur_infound[u]:
-                #    print(u, ' is 0')
-
                 for v in g[u].dependency:
-                    #if v in visited and 0 == cur_infound[v]:
-                    #    continue
-
                     q += (v, depth + 1),
 
             print()
@@ -248,13 +255,11 @@ class DependencyAnalysisHandler(Cmd):
         edges = set()
         nodes = []
         for k, v in g.items():
-            if v.type in {'APP', 'SVC'}:
+            if v.type in {'APP', 'LIB', 'SVC'}:
                 nodes += k,
 
-        print(nodes)
-
-        for app in nodes:
-            q = [app]
+        for node in nodes:
+            q = [node]
 
             while q:
                 u = q.pop()
@@ -262,39 +267,3 @@ class DependencyAnalysisHandler(Cmd):
                     edges.add((u, v))
 
         return edges
-
-    def draw_graph(self, nodes, links):
-        #nodes = ['APP1', 'APP2', 'lib1', 'lib2', 'APP3']
-        #links = [('APP1', 'lib1'), ('APP1', 'lib2'), ('APP2', 'lib1'), ('APP3', 'lib1')]
-
-        node_to_id = collections.defaultdict(str)
-        id_to_node = collections.defaultdict(int)
-
-        for id, node in enumerate(nodes):
-          id_to_node[id] = node
-          node_to_id[node] = id
-
-        edges = []
-        for link in links:
-          u, v = link
-          edges += (node_to_id[u], node_to_id[v]),
-
-        inbound = collections.defaultdict(int)
-        for u, v in edges:
-          inbound[v] += 1
-
-        node_sizes = []
-        for n in id_to_node.keys():
-            node_sizes.append(inbound[n]*100)
-
-        g = nx.DiGraph()
-        g.add_nodes_from(id_to_node.keys())
-        g.add_edges_from(edges)
-
-        nx.draw_random(g, node_size=node_sizes, labels=id_to_node, with_labels=True)    
-        plt.show()
-                        
-
-
-
-
