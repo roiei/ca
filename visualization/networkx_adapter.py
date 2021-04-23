@@ -72,12 +72,14 @@ class NetworkX:
 
         ng = nx.DiGraph()
         depth_nodes = collections.defaultdict(list)
-
         for id, node in id_to_node.items():
             if node in g:
                 depth_nodes[g[node].depth] += id,
-            else:
-                depth_nodes[3] += id,
+
+        # for depth, nodes in depth_nodes.items():
+        #     print(depth)
+        #     print(nodes)
+        # sys.exit()
 
         for depth, nodes in depth_nodes.items():
             ng.add_nodes_from(nodes, layer=depth)
@@ -112,8 +114,10 @@ class NetworkX:
         mn_font_size = 7
 
         for id, (x, y) in pos.items():
+            in_cnt = len(g[id_to_node[id]].fan_ins)
+            out_cnt = len(g[id_to_node[id]].fan_outs)
             text(x, y, 
-                id_to_node[id] + ': {}'.format(len(g[id_to_node[id]].dependency)), 
+                id_to_node[id] + ' > in: {}, out: {}'.format(in_cnt, out_cnt), 
                 fontsize=max(mn_font_size, mx_font_size*((degrees[id] + 5)/(mxd + 5))), 
                 color=font_colors[id],
                 ha='center', va='center')
