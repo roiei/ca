@@ -5,7 +5,9 @@ import collections
 from visualization.networkx_adapter import *
 from util.platform_info import *
 from cmake_parser import *
+from pro_parser import *
 from module_types import *
+from dependency_config import *
 
 
 class BuildScriptParser:
@@ -13,20 +15,20 @@ class BuildScriptParser:
         pass
 
 
-class ProBuildScriptParser:
-    def build_dep_graph(self, url):
-        pass
-
-
 class DependencyAnalysisHandler(Cmd):
     def __init__(self):
-        self.extension_handlers = {
+        self.ext_handlers = {
             'pro': ProBuildScriptParser()
         }
 
         self.file_handlers = {
             'CMakeLists.txt': CMakeBuildScriptParser()
         }
+
+        cfg_reader = \
+            DependencyConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
+            PlatformInfo.get_delimiter() + 'cfg_dependency.conf')
+        self.dep_cfg = cfg_reader.getConfig(cfg_reader.readAsJSON())
 
     def __del__(self):
         pass
@@ -65,9 +67,12 @@ class DependencyAnalysisHandler(Cmd):
                 if file_name in self.file_handlers:
                     graph = \
                         self.file_handlers[file_name].build_dep_graph(file)
-                # elif extension in self.extension_handlers:
-                #     graph = self.extension_handlers.build_dep_graph(file_name)
-                
+                elif extension in self.ext_handlers:
+                    if 'ccos.app' not in file:
+                        continue
+                    graph = \
+                        self.ext_handlers[extension].build_dep_graph(file)
+
                 if graph:                    
                     self.merge_graph(dep_graph, graph)
                 #print()
@@ -80,7 +85,7 @@ class DependencyAnalysisHandler(Cmd):
         print()
 
         edges = self.get_links(graph)
-        NetworkX.draw_layered_diagram(graph, edges)
+        NetworkX.draw_layered_diagram(graph, edges, self.dep_cfg)
         return True
 
     def register_fan_ins(self, g):
@@ -98,7 +103,10 @@ class DependencyAnalysisHandler(Cmd):
     def calc_stability(self, g):
         for u in g:
             if len(g[u].fan_ins) + len(g[u].fan_outs) == 0:
-                g[u].instability = 1
+                if len(g[u].fan_outs) > 0:
+                    g[u].instability = 1
+                else:
+                    g[u].instability = 0
             else:    
                 g[u].instability = \
                     len(g[u].fan_outs)/(len(g[u].fan_ins) + len(g[u].fan_outs))
@@ -144,9 +152,12 @@ class DependencyAnalysisHandler(Cmd):
     def get_links(self, g):
         edges = set()
         nodes = []
+        types = set()
         for k, v in g.items():
-            if v.type in {'APP', 'LIB', 'SVC'}:
+            if v.type in set(self.dep_cfg.get_activated_edges()):
                 nodes += k,
+
+            types.add(v.type)
 
         for node in nodes:
             q = [node]

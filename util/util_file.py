@@ -212,3 +212,11 @@ class UtilFile:
             ret_dir_files[directory] += files
 
         return ret_dir_files
+
+    @staticmethod
+    def get_content(url):
+        lines = None
+        with open(url, 'r', encoding='utf8') as f:
+            lines = f.readlines()
+
+        return ''.join(lines)

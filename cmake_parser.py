@@ -1,13 +1,14 @@
 import collections
 from module_types import *
+from util.util_file import *
 import re
 
 
 class CMakeBuildScriptParser:
     types = {
-        "APP_NAME": ("APP", 0),
-        "LIB_NAME": ("LIB", 1),
-        "SERVICE_NAME": ("SVC", 2)
+        "APP_NAME": ("APP", 2),         # manager app component level
+        "LIB_NAME": ("LIB", 3),         # ccOS API module level
+        "SERVICE_NAME": ("SVC", 4)      # service app component level
     }
 
     @staticmethod
@@ -25,12 +26,11 @@ class CMakeBuildScriptParser:
     @staticmethod
     def _find_output_name(url, name, content):
         output_name = ''
-        if '${PROJECT_NAME}' == name:
+        if name.endswith('_NAME}'):
             pattern = re.compile('project\s*\(\s*[\w]+\s*\)')
             m = pattern.search(content)
             if m:
-                print(m)
-                sx, ex = m.span()
+                sx, ex = m.span()                
                 output_name = content[sx:ex + 1]
                 sx = output_name.find('(')
                 ex = output_name.rfind(')')
@@ -42,7 +42,7 @@ class CMakeBuildScriptParser:
     @staticmethod
     def _get_module_info(type_str, name):
         #print('type = ', type_str, 'name = ', name)
-        value = CMakeBuildScriptParser.types.get(type_str, ('NONE', 10))
+        value = CMakeBuildScriptParser.types.get(type_str, ('NONE', -1))
         type, depth = value
         if type == 'NONE':
             return '', 0
@@ -59,8 +59,7 @@ class CMakeBuildScriptParser:
 
         return type, depth
 
-    @staticmethod
-    def _parse_outputname(line, g, param, url, content):
+    def _parse_outputname(self, line, g, url, content):
         #print('line = ', line)
         sx = line.find('(')
         ex = line.rfind(')')
@@ -88,20 +87,21 @@ class CMakeBuildScriptParser:
             #print('name {}: cannot find type {}'.format(name, type_str))
             return
 
-        print('type = {}, name = {}, depth = {}'.format(type, name, depth))
-
+        res_name = name
         if name.startswith('$'):
-            name = CMakeBuildScriptParser._find_output_name(url, name, content)
+            res_name = CMakeBuildScriptParser._find_output_name(url, name, content)
 
-        if not name:
-            print('ERROR: could not find name = {}'.format(name))
+        if not res_name:
+            print('cmake:ERROR: could not find name = {}'.format(name), url)
             return
 
+        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
+
         g[name] = ModuleInfo()
-        g[name].name = name
+        g[name].name = res_name
         g[name].type = type
         g[name].depth = depth
-        return name
+        return res_name
 
     @staticmethod
     def _parse_dependency(line, g, param, url):
@@ -144,36 +144,33 @@ class CMakeBuildScriptParser:
             _parse_dependency.__func__)
     }
 
-
     def __init__(self):
         pass
 
-    def get_content(self, url):
-        lines = None
-        with open(url, 'r', encoding='utf8') as f:
-            lines = f.readlines()
-
-        return ''.join(lines)
-
-    def build_dep_graph(self, url):
-        content = self.get_content(url)
-        if not content:
-            return
-
-        g = collections.defaultdict(ModuleInfo)
-        oname = ''
-
-        #pattern = re.compile('set\([A-Z_]+\s+[\w]+\)')
+    def add_output_module(self, g, content, url):
+        """
+            add output module to the given graph
+        """
         pattern = re.compile('set\([A-Z_]+\s+[._${}\w]+\)')
         m = pattern.finditer(content)
         for r in m:
             span = r.span()
             #print(content[span[0]:span[1]])
-            res = CMakeBuildScriptParser._parse_outputname(
-                content[span[0]:span[1]], g, oname, url, content)
+            res = self._parse_outputname(
+                content[span[0]:span[1]], g, url, content)
 
             if '' != res and None != res:
-                oname = res
+                return res
+
+        return ''
+
+    def build_dep_graph(self, url):
+        content = UtilFile.get_content(url)
+        if not content:
+            return
+
+        g = collections.defaultdict(ModuleInfo)
+        oname = self.add_output_module(g, content, url)
 
         if '' == oname:
             #print('UNDEF: url = ', url)

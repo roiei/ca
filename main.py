@@ -80,11 +80,9 @@ def execute_handler(cmd, opts, cfg):
 
 
 def execute(cmd, opts):
-    delimeter = PlatformInfo.get_delimiter()
     cfg_reader = ConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
-        delimeter + 'cfg_csi.conf')
-    csi_cfg_json = cfg_reader.readAsJSON()
-    cfg = cfg_reader.getConfig(csi_cfg_json)
+        PlatformInfo.get_delimiter() + 'cfg_csi.conf')
+    cfg = cfg_reader.getConfig(cfg_reader.readAsJSON())
     override_cfg(cfg, opts)
 
     res = execute_handler(cmd, opts, cfg)

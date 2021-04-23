@@ -3,6 +3,7 @@ from matplotlib.pyplot import figure, text
 import np
 import sys, networkx as nx, matplotlib.pyplot as plt
 import collections
+from module_types import *
 
 
 class NetworkX:
@@ -22,10 +23,13 @@ class NetworkX:
         return rgb
 
     @staticmethod
-    def draw_layered_diagram(g, links):
-        #nodes = ['APP1', 'APP2', 'lib1', 'lib2', 'APP3']
-        #links = [('APP1', 'lib1'), ('APP1', 'lib2'), ('APP2', 'lib1'), ('APP3', 'lib1')]
+    def draw_layered_diagram(g, links, dep_cfg):
+        filtered_g = collections.defaultdict(ModuleInfo)
+        for k, v in g.items():
+            if not ' ' in k and '\\' not in k and '/' not in k:
+                filtered_g[k] = v
 
+        g = filtered_g
         node_to_id = collections.defaultdict(str)
         id_to_node = collections.defaultdict(int)
         nodes = g.keys()
@@ -60,9 +64,12 @@ class NetworkX:
         node_colors = []
         font_colors = collections.defaultdict(str)
 
+        fan_in_weight = dep_cfg.get_fan_in_weight()
+        node_size_weight = dep_cfg.get_node_size_weight()
+
         for n in id_to_node.keys():
-            node_sizes += inbound[n]*100,
-            weight = (inbound[n]*10)
+            node_sizes += inbound[n]*node_size_weight,
+            weight = (inbound[n]*fan_in_weight)
             node_color = NetworkX.get_rgb_color(weight)
             font_color = NetworkX.get_rgb_color(max(0, 50 - weight))
             node_colors += node_color,
@@ -76,21 +83,11 @@ class NetworkX:
             if node in g:
                 depth_nodes[g[node].depth] += id,
 
-        # for depth, nodes in depth_nodes.items():
-        #     print(depth)
-        #     print(nodes)
-        # sys.exit()
-
         for depth, nodes in depth_nodes.items():
             ng.add_nodes_from(nodes, layer=depth)
 
         ng.add_edges_from(edges)
-
-        #pos = nx.complete_multipartite_graph(ng)
-        #nx.draw(ng, pos, node_color=color, with_labels=False)
-
         pos = nx.multipartite_layout(ng, subset_key="layer", scale=5)
-        #print(pos)
 
         array_op = lambda x, weight: np.array([x[0]*weight, x[1]*weight])
         pos = {id: array_op(coord, 3) for id, coord in pos.items()}
@@ -101,26 +98,34 @@ class NetworkX:
         nx.draw(ng, pos, 
             node_size=node_sizes, 
             node_color=node_colors,
-            edge_color='#C1F4FF',
+            edge_color=dep_cfg.get_edge_color(),
             labels=id_to_node, 
             with_labels=False)
 
         degrees = dict(ng.degree)
-
-        mnd = min(degrees.values())
         mxd = max(degrees.values())
 
-        mx_font_size = 20
-        mn_font_size = 7
+        mx_font_size = dep_cfg.get_max_font_size()
+        mn_font_size = dep_cfg.get_min_font_size()
 
         for id, (x, y) in pos.items():
             in_cnt = len(g[id_to_node[id]].fan_ins)
             out_cnt = len(g[id_to_node[id]].fan_outs)
-            text(x, y, 
-                id_to_node[id] + ' > in: {}, out: {}'.format(in_cnt, out_cnt), 
-                fontsize=max(mn_font_size, mx_font_size*((degrees[id] + 5)/(mxd + 5))), 
-                color=font_colors[id],
-                ha='center', va='center')
+            try:
+                title = id_to_node[id] + ' > in: {}, out: {}'.format(in_cnt, out_cnt)
+                title += ', s: {:.2f}'.format(g[id_to_node[id]].instability)
+
+                text(x, y, 
+                    title, 
+                    fontsize=max(mn_font_size, mx_font_size*((degrees[id] + 5)/(mxd + 5))), 
+                    color=font_colors[id],
+                    ha='center', va='center')
+            except TypeError:
+                print('EXCEPTION: TypeError')
+                print(id)
+                print(id_to_node[id])
+                print(id_to_node)
+                sys.exit()
 
         #nx.draw_random(ng, node_size=node_sizes, labels=id_to_node, with_labels=True)    
         plt.show()
