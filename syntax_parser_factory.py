@@ -1,5 +1,6 @@
 from syntax_parser import *
 from syntax_parser_hpp import *
+from syntax_parser_cpp import *
 
 
 class SyntaxParserFactory:
@@ -11,10 +12,15 @@ class SyntaxParserFactory:
     
     @staticmethod
     def createCppHeader():
-        return CppHeaderParser('QtProParser')
+        return CppHeaderParser('CppHeaderParser')
+
+    @staticmethod
+    def createCppImpl():
+        return CppImplParser('CppImplParser')
     
     creator = {}
     creator['hpp'] = createCppHeader.__func__
+    creator['cpp'] = createCppImpl.__func__
 
     @staticmethod
     def get_supported_types():

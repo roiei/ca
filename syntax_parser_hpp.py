@@ -8,16 +8,11 @@ from tries import *
 from config_reader import *
 from file_info_types import *
 from foundation.types import *
+from util.util_log import *
+from cpp_parser import *
 
 
-DEBUG_MSG_ON = False
-#DEBUG_MSG_ON = True
-
-
-def logd(log):
-    if not DEBUG_MSG_ON:
-        return
-    print(log)
+logger = Logger(False)
 
 
 class CppHeaderParser(SyntaxParser):
@@ -312,7 +307,7 @@ class CppHeaderParser(SyntaxParser):
 
         return True, func_expr[sidx + 1:eidx]
 
-    def __get_param_block(self, text):
+    def __get_param_pos(self, text):
         n = len(text)
         i = n - 1
 
@@ -322,7 +317,7 @@ class CppHeaderParser(SyntaxParser):
             i -= 1
 
         if i < 0 or text[i] != ')':
-            return False, ''
+            return -1, ''
 
         i -= 1
         end = i
@@ -339,9 +334,16 @@ class CppHeaderParser(SyntaxParser):
             i -= 1
 
         if i < 0:
+            return -1, ''
+
+        return i, end
+
+    def __get_param_block(self, text):
+        sx, ex = self.__get_param_pos(text)
+        if -1 == sx:
             return False, ''
         
-        return True, text[i + 1:end + 1]
+        return True, text[sx + 1:ex + 1]
 
     def __get_split_lines(self, doxy_text):
         lines = []
@@ -461,7 +463,7 @@ class CppHeaderParser(SyntaxParser):
         OUT:
             {"public":[method1, method2], "protected":[method3]}
         """
-        logd('+{} of {}'.format(sys._getframe().f_code.co_name, clz))
+        logger.log('+{} of {}'.format(sys._getframe().f_code.co_name, clz))
         if not code:
             return None
 
@@ -497,7 +499,7 @@ class CppHeaderParser(SyntaxParser):
             m = pattern.search(expr)
             if m:
                 expr = expr[m.span()[0]:m.span()[1]].strip()
-                logd('method = {}'.format(expr))
+                logger.log('method = {}'.format(expr))
                 params = self.__split_param(expr)
                 ret = self.__split_return(expr, clz)
                 access_mod[modifier + ' method'] += (expr, params, ret),
@@ -506,7 +508,7 @@ class CppHeaderParser(SyntaxParser):
             i += 1
 
         #self.__print_class_methods(clz, access_mod)
-        logd('-{} of {}'.format(sys._getframe().f_code.co_name, clz) + '\n'*2)
+        logger.log('-{} of {}'.format(sys._getframe().f_code.co_name, clz) + '\n'*2)
         return access_mod
 
     def __check_keyword(self, namespace, kwd, clz_methods):
@@ -736,6 +738,19 @@ class CppHeaderParser(SyntaxParser):
 
         return res if res else {"violate_modularity": True}
 
+    def get_method_calls(self, code):
+        print(code)
+        sys.exit()
+        pass
+
+    def get_method_name(self, method):
+        sx, ex = self.__get_param_pos(method)
+        if -1 == sx:
+            return ''
+
+        method_name = method[:sx].split()[-1]
+        return method_name
+
     def set_suffix_filter(self, suffixes):
         for name in suffixes:
             self.prohibited_suffixes.insert(name[::-1])
@@ -743,17 +758,8 @@ class CppHeaderParser(SyntaxParser):
     def set_filter_keyword(self, keywords):
         self.filter_keywords += keywords
 
-    def get_code_without_comment(self, file):
-        lines = None
-
-        with open(file, 'r') as fp:
-            lines = fp.readlines()
-            lines = ''.join(lines)
-            if lines:
-                lines = re.compile("(?s)/\*.*?\*/").sub("", lines)
-                lines = re.compile("//.*").sub("", lines)
-
-        return lines
+    def get_code_without_comment(self, url):
+        return CppParser.get_code_only(url)
 
     def check_rules(self, code, report, cfg, rule_coverage="all"):
         """

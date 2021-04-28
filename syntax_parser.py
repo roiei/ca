@@ -34,3 +34,6 @@ class SyntaxParser:
 
     def get_code(self, file):
         return
+
+    def find_method_calls(self, code):
+        return

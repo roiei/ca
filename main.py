@@ -12,6 +12,7 @@ from doxygen_comment_handler import *
 from verify_handler import *
 from enum_handler import *
 from dependency_analysis_handler import *
+from call_dependency_analysis_handler import *
 from util.platform_info import *
 
 
@@ -45,11 +46,16 @@ cmd_handlers = {
     ),
     'verify_comment': (
         DoxygenVerificationHandler(),
-        '--cmd=verify_comment --path=./'
+        '--cmd=comment --path=./'
     ),
     'dependency': (
         DependencyAnalysisHandler(),
-        '--cmd=dependency --path=./'
+        '--cmd=dependency --path=./  <- locate all source code here'
+    ),
+    'call_dependency': (
+        CallDependencyAnalysisHandler(),
+        '--cmd=call_dependency --ppath=./ --upath=./  [--savefile=name] \
+        [--loadfile=name]'
     )
 }
 

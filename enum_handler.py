@@ -71,4 +71,4 @@ class EnumerateCPPMethodHandler(Cmd):
                 file_clz_methods[file] = clz_methods
 
         print_enum_result(file_clz_methods)
-        return True
+        return True, None
