@@ -29,21 +29,35 @@ class CppImplParser(SyntaxParser):
         #print(code)
         calls = collections.defaultdict(int)
 
-        pattern = re.compile('(::|\.|->)[\w]+\s*\([\w\s]*\)\s*;')
+        #pattern = re.compile('(::|\.|->)[\w]+\s*\([\w\s,\"~]*\)\s*;')
+        pattern = re.compile('[\w]+(::|\.|->)[\w]+\s*\([\w\s,\"~]*\)\s*;')
         m = pattern.finditer(code)
         for r in m:
             span = r.span()
             sx, ex = span[0], span[1]
+            part = code[sx:ex + 1]
 
-            while sx < ex and code[sx] in ':->.':
+            midx = part.find('::')
+            if -1 == midx:
+                midx = part.find('.')
+
+            if -1 == midx:
+                midx = part.find('->')
+
+            caller = part[:midx]
+            sx = midx
+
+            while sx < ex and part[sx] in ':->.':
                 sx += 1
 
-            method = code[sx:ex + 1]
+            method = part[sx:ex + 1]
             ex = method.find('(')
             method = method[:ex]
-            #print('method = ', method)
-            calls[method] += 1
+            
+            #print('caller = ', caller, ', method = ', method)
+            calls[caller + '::' + method] += 1
 
+        # [(clz1, call1), (clz2, call2), ...]
         return calls
 
             

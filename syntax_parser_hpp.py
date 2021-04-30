@@ -84,7 +84,7 @@ class CppHeaderParser(SyntaxParser):
                 break
 
             found = m.group()
-            clz = m.groups()[2]
+            clz = m.groups()[2].strip()
             idx = m.start()
             if -1 == idx:
                 break
@@ -497,8 +497,10 @@ class CppHeaderParser(SyntaxParser):
 
             expr = expr.strip()
             m = pattern.search(expr)
+            #print(expr)
             if m:
                 expr = expr[m.span()[0]:m.span()[1]].strip()
+                #print(expr)
                 logger.log('method = {}'.format(expr))
                 params = self.__split_param(expr)
                 ret = self.__split_return(expr, clz)
@@ -748,7 +750,18 @@ class CppHeaderParser(SyntaxParser):
         if -1 == sx:
             return ''
 
-        method_name = method[:sx].split()[-1]
+        method_name = method[:sx]
+        method_chunks = method_name.split()
+
+        if method_chunks[-1] in {'==', '=', '+', '-'} and 'operator' in method_chunks[-2]:
+            method_name = method_chunks[-2] + method_chunks[-1]
+        else:
+            method_name = method_chunks[-1] 
+
+        # if 'operator' in method[:sx]:
+        #     print(method[:sx])
+        #     print(method_name)
+
         return method_name
 
     def set_suffix_filter(self, suffixes):

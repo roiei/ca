@@ -9,11 +9,19 @@ from pro_parser import *
 from module_types import *
 from dependency_config import *
 from syntax_parser_factory import *
-
+import matplotlib.pyplot as plt
+import matplotlib.table as tbl
+import numpy as np  
 
 class BuildScriptParser:
     def build_dep_graph(self, url):
         pass
+
+
+class MethodCallInfo:
+    def __init__(self):
+        self.method_freqs = collections.defaultdict(list)
+        self.method_clzs  = collections.defaultdict(set)
 
 
 class CallDependencyAnalysisHandler(Cmd):
@@ -26,36 +34,42 @@ class CallDependencyAnalysisHandler(Cmd):
     def execute(self, opts, cfg):
         self.get_methods(opts, cfg)
 
-    def _write_method_info(self, method_freqs, url):
+    def _write_method_info(self, callinfo, url):
+        print('save')
+        for k, v in callinfo.method_clzs.items():
+            callinfo.method_clzs[k] = list(v)
+
+        adict = {
+            'method_freq': callinfo.method_freqs,
+            'method_clzs': callinfo.method_clzs
+        }
+
         with open(url, "w", encoding='utf-8') as fp:
-            for k, v in method_freqs.items():
-                fp.write(k + ', ' + v[0] + ', ' + str(v[1]) + '\n')
+            json.dump(adict, fp)
         return True
 
-    def _read_method_info(self, method_freqs, url):
+    def _read_method_info(self, callinfo, url):
         with open(url, "r", encoding='utf-8') as fp:
-            while True:
-                line = fp.readline()
-                if not line:
-                    break
+            adict = json.load(fp)
 
-                method, clz, freq = line.split(',')
-                method = method.strip()
-                freq = int(freq)
-                method_freqs[method] = [clz, freq]
+        for name, freq in adict['method_freq'].items():
+            callinfo.method_freqs[name] = freq
+
+        for name, clz_list in adict['method_clzs'].items():
+            callinfo.method_clzs[name] = set(clz_list)
 
     def get_methods(self, opts, cfg):
-        method_freqs = collections.defaultdict(list)
+        callinfo = MethodCallInfo()
 
         if 'loadfile' in opts:
-            self._read_method_info(method_freqs, opts['loadfile'])
+            self._read_method_info(callinfo, opts['loadfile'])
         else:
-            method_freqs = self.get_method_names(opts, cfg)
-            if not method_freqs:
+            callinfo = self.get_method_names(opts, cfg)
+            if not callinfo:
                 return False, None
 
         if 'savefile' in opts:
-            self._write_method_info(method_freqs, opts['savefile'])
+            self._write_method_info(callinfo, opts['savefile'])
             return
 
         locations = UtilFile.get_dirs_files(opts["upath"], \
@@ -77,8 +91,9 @@ class CallDependencyAnalysisHandler(Cmd):
                 if file_type not in syntax_parsers:
                     continue
 
-                parser = syntax_parsers[file_type]
+                # todo: + finding class 
 
+                parser = syntax_parsers[file_type]
                 code = parser.get_code_without_comment(file)
                 if not code:
                     continue
@@ -86,19 +101,85 @@ class CallDependencyAnalysisHandler(Cmd):
                 #print(file)
                 calls = parser.find_method_calls(code)
 
-                for method, freq in calls.items():
-                    if method in method_freqs:
-                        method_freqs[method][1] += 1
+                self.update_freq(calls, callinfo)
 
+        #self.print_result(callinfo)
+        #self.print_targetfreq_methods(callinfo, 0)
+        #self.print_above_targetfreq_methods(callinfo, 0)
+        self.draw_result_tbl(callinfo)
+
+    def update_freq(self, calls, callinfo):
+        for method, freq in calls.items():
+            if method in callinfo.method_freqs:
+                callinfo.method_freqs[method] += 1
+
+            sidx = method.find('::')
+            caller, method = method[:sidx], method[sidx + 2:]
+            #print(caller, method)
+
+            if method in callinfo.method_freqs:
+                callinfo.method_freqs[method] += 1
+
+    def print_result(self, callinfo):
         print('>>>>>>>>')
-        #print(method_freqs)
-        for k, v in method_freqs.items():
-            if v[1] == 0:
+        #print(callinfo.method_freqs)
+        for k, v in callinfo.method_freqs.items():
+            if v == 0:
                 print(k, v)
-        for k, v in method_freqs.items():
-            if v[1] != 0:
+        print('--------')
+        for k, v in callinfo.method_freqs.items():
+            if v != 0:
                 print(k, v)
         print('<<<<<<<<')
+
+    def print_above_targetfreq_methods(self, callinfo, target_freq):
+        print('+print_above_targetfreq_methods')
+        for method, freq in callinfo.method_freqs.items():
+            if '::' in method:
+                continue
+            if freq > target_freq:
+                print('method = {}, freq = {}, suspicious = {}'.format(
+                    method, freq, callinfo.method_clzs[method]))
+
+    def print_targetfreq_methods(self, callinfo, target_freq):
+        print('+print_no_ref_methods')
+        for method, freq in callinfo.method_freqs.items():
+            if '::' in method:
+                continue
+            if freq == target_freq:
+                print('method = {}, freq = {}, suspicious = {}'.format(
+                    method, freq, callinfo.method_clzs[method]))
+
+    def draw_result_tbl(self, callinfo):
+        print('+')
+          
+        colLabels  = ['method', 'freq', 'candidate']
+        methods    = list(callinfo.method_freqs.keys())
+        freqs      = list(callinfo.method_freqs.values())
+        candidates = []
+
+        for method in methods:
+            candidates += callinfo.method_clzs[method],
+
+        cell_vals = []
+        for i in range(len(methods)):
+            cell_vals += [methods[i], freqs[i], candidates[i]],
+
+        fig, ax = plt.subplots()
+        ax.set_axis_off()
+        table = tbl.table(
+            ax,
+            cellText = cell_vals,
+            rowLabels = methods,
+            colLabels = colLabels,
+            rowColours = ["palegreen"] * 10,
+            colColours =["palegreen"] * 10,
+            cellLoc ='center', 
+            loc ='upper left')
+          
+        ax.add_table(table)
+        ax.set_title('result', fontweight ="bold")
+        plt.show()
 
     def get_method_names(self, opts, cfg):
         locations = UtilFile.get_dirs_files(opts["ppath"], \
@@ -113,7 +194,7 @@ class CallDependencyAnalysisHandler(Cmd):
             return None
 
         file_clz_methods = collections.defaultdict(None)
-        method_freqs = collections.defaultdict(list)
+        callinfo = MethodCallInfo()
 
         for directory, files in locations.items():
             if not files:
@@ -137,20 +218,34 @@ class CallDependencyAnalysisHandler(Cmd):
                     if not (clz.startswith('H') or clz.startswith('IH')):
                         continue
 
-                    self.find_methods(parser, method_freqs, clz, method_info)
+                    self.find_methods(parser, callinfo, clz, method_info)
 
                 file_clz_methods[file] = clz_methods
 
-        return method_freqs
+        return callinfo
 
-    def find_methods(self, parser, method_freqs, clz, method_info):
-        for scope, methods in method_info.items():
+    def find_methods(self, parser, callinfo, clz, method_info):
+        for scope, methods in method_info.items():            
             if 'public' not in scope:
                 continue
 
             for method in methods:
-                #print('methods = ', method[0])
                 method_name = parser.get_method_name(method[0])
-                if method_name not in method_freqs and method_name != clz \
-                    and method_name[1:] != clz:
-                    method_freqs[method_name] = [clz, 0]
+
+                if method_name == clz or \
+                    method_name[1:] == clz or \
+                    'operator' in method_name:
+                    continue
+
+                # if method_name == '=':
+                #     print(method)
+
+                clz_method = clz + '::' + method_name
+
+                callinfo.method_clzs[method_name].add(clz)
+
+                if method_name not in callinfo.method_freqs:
+                    callinfo.method_freqs[method_name] = 0
+
+                if clz_method not in callinfo.method_freqs:
+                    callinfo.method_freqs[clz_method] = 0
