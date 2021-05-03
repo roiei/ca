@@ -1,5 +1,6 @@
 from cmd_interface import *
 from util.util_file import *
+from util.util_print import *
 import copy
 import collections
 from visualization.networkx_adapter import *
@@ -13,9 +14,17 @@ import matplotlib.pyplot as plt
 import matplotlib.table as tbl
 import numpy as np  
 
+
 class BuildScriptParser:
     def build_dep_graph(self, url):
         pass
+
+
+class CallStats:
+    def __init__(self):
+        self.non_called_method_num = 0
+        self.called_method_num = 0
+        self.num_methods = 0
 
 
 class MethodCallInfo:
@@ -103,10 +112,11 @@ class CallDependencyAnalysisHandler(Cmd):
 
                 self.update_freq(calls, callinfo)
 
-        #self.print_result(callinfo)
+        self.print_result(callinfo)
         #self.print_targetfreq_methods(callinfo, 0)
         #self.print_above_targetfreq_methods(callinfo, 0)
-        self.draw_result_tbl(callinfo)
+
+        #self.draw_result_tbl(callinfo) # possible but data is too big to use it
 
     def update_freq(self, calls, callinfo):
         for method, freq in calls.items():
@@ -120,17 +130,55 @@ class CallDependencyAnalysisHandler(Cmd):
             if method in callinfo.method_freqs:
                 callinfo.method_freqs[method] += 1
 
+    def print_call_stats(self, stats):
+        cols = ['# methods', '# called', '# called %', '# not called', '# not called %']
+        rows = []
+        col_widths = [12, 12, 12, 12, 14]
+
+        row = []
+        row += ('{:<12d}', stats.num_methods),
+        row += ('{:<12d}', stats.called_method_num),
+        row += ('{:<.3f} %', (stats.called_method_num/stats.num_methods)*100),
+        row += ('{:<12d}', stats.non_called_method_num),
+        row += ('{:<.3f} %', (stats.called_method_num/stats.non_called_method_num)*100),
+        rows += row,
+
+        UtilPrint.print_lines_with_custome_lens(' * stats', 
+            col_widths, cols, rows)
+
     def print_result(self, callinfo):
-        print('>>>>>>>>')
-        #print(callinfo.method_freqs)
-        for k, v in callinfo.method_freqs.items():
-            if v == 0:
-                print(k, v)
-        print('--------')
-        for k, v in callinfo.method_freqs.items():
-            if v != 0:
-                print(k, v)
-        print('<<<<<<<<')
+        cols = ['method', 'freq', 'candidates']
+        col_widths = [30, 5, 80]
+        rows = []
+        stats = CallStats()
+
+        call_freqs = sorted(callinfo.method_freqs.items(), reverse=True, key=lambda p: p[1])
+        methods = []
+        freqs = []
+        for k, v in call_freqs:
+            methods += k,
+            freqs += v,
+            if v:
+                stats.called_method_num += 1
+            stats.num_methods += 1
+
+        stats.non_called_method_num = stats.num_methods - stats.called_method_num
+
+        self.print_call_stats(stats)
+
+        candidates = []
+        for method in methods:
+            candidates += callinfo.method_clzs[method],
+
+        for i in range(len(methods)):
+            row = []
+            row += ('{:<12s}', methods[i]),
+            row += ('{:<12d}', freqs[i]),
+            row += ('{:<12s}', ', '.join(candidates[i])),
+            rows += row,
+
+        UtilPrint.print_lines_with_custome_lens(' * call freq.', 
+            col_widths, cols, rows)
 
     def print_above_targetfreq_methods(self, callinfo, target_freq):
         print('+print_above_targetfreq_methods')
@@ -163,17 +211,22 @@ class CallDependencyAnalysisHandler(Cmd):
 
         cell_vals = []
         for i in range(len(methods)):
-            cell_vals += [methods[i], freqs[i], candidates[i]],
+            #cell_vals += [methods[i], freqs[i], candidates[i]],
+            cell_vals += [methods[i], freqs[i], ""],
+
+        val1 = ["{:X}".format(i) for i in range(10)]
+        val2 = ["{:02X}".format(10 * i) for i in range(10)]
+        val3 = [["" for c in range(10)] for r in range(10)]
 
         fig, ax = plt.subplots()
         ax.set_axis_off()
         table = tbl.table(
             ax,
-            cellText = cell_vals,
-            rowLabels = methods,
+            cellText = cell_vals[:10],
+            #rowLabels = val2,
             colLabels = colLabels,
-            rowColours = ["palegreen"] * 10,
-            colColours =["palegreen"] * 10,
+            #rowColours = ["palegreen"] * 10,
+            colColours =["palegreen"] * 3,
             cellLoc ='center', 
             loc ='upper left')
           

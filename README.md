@@ -30,6 +30,8 @@ When it comes to 'Rule of Five', the CSI detects which class violates the rule a
   * modularity is not 'must' to follow. It's 'should'
     * number of public methods are limited to 30 or less
     * number of parameters are limited to 7 or less
+* component dependency analysis
+* call dependency analysis
 * and
   * other features can be added easily
 
@@ -155,6 +157,32 @@ you can see the result with the web browser as follow by enabling "json_output" 
   * enumerate all the method in cpp header file
 * verify_comment
   * verify doxygen comment
+* dependency
+* call_dependency
+
+
+&nbsp;
+
+### usage
+
+
+## dependency
+
+main.py --cmd=dependency --path=d:\projects\ccos\all
+
+
+&nbsp;
+
+## call_dependency
+
+# 1. regular use
+* main.py --cmd=call_dependency --ppath=api_path --upath=app_path
+
+# 2. save API analysis
+* main.py --cmd=call_dependency --ppath=api_path --savefile=file_name
+
+# 3. use stored API analysis
+* main.py --cmd=call_dependency --upath=app_path --loadfile=file_name
 
 
 &nbsp;
