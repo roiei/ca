@@ -163,7 +163,7 @@ you can see the result with the web browser as follow by enabling "json_output" 
 
 &nbsp;
 
-### usage
+# usage
 
 
 ## dependency
@@ -175,20 +175,20 @@ main.py --cmd=dependency --path=d:\projects\ccos\all
 
 ## call_dependency
 
-# 1. regular use
+### 1. regular use
 * main.py --cmd=call_dependency --ppath=api_path --upath=app_path
 
-# 2. save API analysis
+### 2. save API analysis
 * main.py --cmd=call_dependency --ppath=api_path --savefile=file_name
 
-# 3. use stored API analysis
+### 3. use stored API analysis
 * main.py --cmd=call_dependency --upath=app_path --loadfile=file_name
 
 
 &nbsp;
 
 
-### configuration
+# configuration
 
 'cfg_ca.conf' file has configurations regarding to the CA
 
@@ -205,7 +205,7 @@ main.py --cmd=dependency --path=d:\projects\ccos\all
 
 &nbsp;
 
-#### configration file
+## configration file
 ```JSON
 {
     "type": "cpp",
@@ -237,7 +237,7 @@ main.py --cmd=dependency --path=d:\projects\ccos\all
 &nbsp;
 
 
-### CPP rules
+# CPP rules
 
 * rof
   * to check if 'Rule of Five' is applied or not

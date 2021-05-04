@@ -29,6 +29,9 @@ class CallStats:
 
 class MethodCallInfo:
     def __init__(self):
+        self.dir_info = collections.defaultdict(
+            lambda: collections.defaultdict(
+                lambda: collections.defaultdict(int)))
         self.method_freqs = collections.defaultdict(list)
         self.method_clzs  = collections.defaultdict(set)
 
@@ -48,9 +51,23 @@ class CallDependencyAnalysisHandler(Cmd):
         for k, v in callinfo.method_clzs.items():
             callinfo.method_clzs[k] = list(v)
 
+        dir_info = {}
+        for dir_name, clz_info in callinfo.dir_info.items():
+            if dir_name not in dir_info:
+                dir_info[dir_name] = {}
+
+            for clz_name, method_info in callinfo.dir_info[dir_name].items():
+                if clz_name not in dir_info[dir_name]:
+                    dir_info[dir_name] [clz_name] = {}
+
+                for method_name, freq in callinfo.dir_info[dir_name][clz_name].items():
+                    if method_name not in dir_info[dir_name] [clz_name]:
+                        dir_info[dir_name] [clz_name][method_name] = 0
+
         adict = {
             'method_freq': callinfo.method_freqs,
-            'method_clzs': callinfo.method_clzs
+            'method_clzs': callinfo.method_clzs,
+            'dir_info': dir_info
         }
 
         with open(url, "w", encoding='utf-8') as fp:
@@ -66,6 +83,13 @@ class CallDependencyAnalysisHandler(Cmd):
 
         for name, clz_list in adict['method_clzs'].items():
             callinfo.method_clzs[name] = set(clz_list)
+
+        dir_info = adict['dir_info']
+        for dir_name, clz_info in dir_info.items():
+            for clz_name, method_info in dir_info[dir_name].items():
+                for method_name, freq in dir_info[dir_name][clz_name].items():
+                    callinfo.dir_info[dir_name][clz_name][method_name] = \
+                        dir_info[dir_name][clz_name][method_name]
 
     def get_methods(self, opts, cfg):
         callinfo = MethodCallInfo()
@@ -112,6 +136,20 @@ class CallDependencyAnalysisHandler(Cmd):
 
                 self.update_freq(calls, callinfo)
 
+        self.update_dir_info(callinfo)
+        dir_stats = self.calc_dir_stats(callinfo)
+
+        for dname, dstat in dir_stats.items():
+            if not dname.startswith('ccos.'):
+                continue
+
+            self.print_call_stats(dstat, dname)
+            print()
+            # for cname, method_info in callinfo.dir_info[dname].items():
+            #     print(cname)
+            #     for mname, freq in method_info.items():
+            #         print('\t', mname, freq)
+
         self.print_result(callinfo)
         #self.print_targetfreq_methods(callinfo, 0)
         #self.print_above_targetfreq_methods(callinfo, 0)
@@ -130,7 +168,35 @@ class CallDependencyAnalysisHandler(Cmd):
             if method in callinfo.method_freqs:
                 callinfo.method_freqs[method] += 1
 
-    def print_call_stats(self, stats):
+    def update_dir_info(self, callinfo):
+        for dname, clz_info in callinfo.dir_info.items():
+            for cname, method_info in clz_info.items():
+                for mname, freq in method_info.items():
+                    if mname in callinfo.method_freqs:
+                        callinfo.dir_info[dname][cname][mname] = \
+                            callinfo.method_freqs[mname]
+
+    def calc_dir_stats(self, callinfo):
+        dir_stats = collections.defaultdict(CallStats)
+
+        for dname, clz_info in callinfo.dir_info.items():
+            tot_call_num = 0
+            called_call_num = 0
+
+            for cname, method_info in clz_info.items():
+                tot_call_num += len(method_info.keys())
+
+                for mname, freq in method_info.items():
+                    if freq > 0:
+                        called_call_num += 1
+
+            dir_stats[dname].num_methods = tot_call_num
+            dir_stats[dname].called_method_num = called_call_num
+            dir_stats[dname].non_called_method_num = tot_call_num - called_call_num
+
+        return dir_stats
+
+    def print_call_stats(self, stats, title=''):
         cols = ['# methods', '# called', '# called %', '# not called', '# not called %']
         rows = []
         col_widths = [12, 12, 12, 12, 14]
@@ -140,10 +206,10 @@ class CallDependencyAnalysisHandler(Cmd):
         row += ('{:<12d}', stats.called_method_num),
         row += ('{:<.3f} %', (stats.called_method_num/stats.num_methods)*100),
         row += ('{:<12d}', stats.non_called_method_num),
-        row += ('{:<.3f} %', (stats.called_method_num/stats.non_called_method_num)*100),
+        row += ('{:<.3f} %', (stats.non_called_method_num/stats.num_methods)*100),
         rows += row,
 
-        UtilPrint.print_lines_with_custome_lens(' * stats', 
+        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
             col_widths, cols, rows)
 
     def print_result(self, callinfo):
@@ -271,13 +337,13 @@ class CallDependencyAnalysisHandler(Cmd):
                     if not (clz.startswith('H') or clz.startswith('IH')):
                         continue
 
-                    self.find_methods(parser, callinfo, clz, method_info)
+                    self.find_methods(parser, callinfo, directory, clz, method_info)
 
                 file_clz_methods[file] = clz_methods
 
         return callinfo
 
-    def find_methods(self, parser, callinfo, clz, method_info):
+    def find_methods(self, parser, callinfo, directory, clz, method_info):
         for scope, methods in method_info.items():            
             if 'public' not in scope:
                 continue
@@ -302,3 +368,15 @@ class CallDependencyAnalysisHandler(Cmd):
 
                 if clz_method not in callinfo.method_freqs:
                     callinfo.method_freqs[clz_method] = 0
+
+                dir_chunks = directory.split(PlatformInfo.get_delimiter())
+                start = 0
+                if len(dir_chunks) >= 2:
+                    start = -2
+                directory = '-'.join(dir_chunks[start:])
+
+                if method_name not in callinfo.dir_info[directory][clz]:
+                    callinfo.dir_info[directory][clz][method_name] = 0
+
+                if clz_method not in callinfo.dir_info[directory][clz]:
+                    callinfo.dir_info[directory][clz][method_name] = 0
