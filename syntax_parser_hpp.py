@@ -943,10 +943,10 @@ class CppHeaderParser(SyntaxParser):
         return res, errs
 
     def get_code(self, file):
-        lines = None
+        lines = []
 
-        with open(file, 'r') as fp:
-            lines = fp.readlines()
-            lines = ''.join(lines)
+        res = UtilFile.get_lines(file, lines)
+        if ReturnType.SUCCESS != res:
+            return None
 
-        return lines
+        return ''.join(lines)

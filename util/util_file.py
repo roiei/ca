@@ -6,6 +6,12 @@ import json
 from util.platform_info import *
 
 
+class ReturnType(Enum):
+    SUCCESS = 0
+    FILE_OPEN_ERR = 1
+    UNICODE_ERR = 2
+
+
 class FileType(Enum):
     CPP_HEADER = 1
     CPP_IMPL = 2
@@ -220,3 +226,35 @@ class UtilFile:
             lines = f.readlines()
 
         return ''.join(lines)
+
+    @staticmethod
+    def open_file(url, encoding='UTF8'):
+        try:
+            fp = open(url, 'r', encoding=encoding)
+        except FileNotFoundError as e:
+            print(e, 'for ', url)
+            return None
+        except IsADirectoryError as e:
+            print(e, 'for ', url)
+            return None
+        except PermissionError as e:
+            print(e, 'for ', url)
+            return None
+
+        return fp
+
+    @staticmethod
+    def get_lines(url, lines, encoding='utf-8'):
+        fp = UtilFile.open_file(url, encoding)
+        if not fp:
+            return ReturnType.FILE_OPEN_ERR
+
+        try:
+            lines += fp.readlines()
+        except UnicodeDecodeError as e:
+            #print('UnicodeDecodeError:', e, 'for ', url)
+            fp.close()
+            return ReturnType.UNICODE_ERR
+
+        fp.close()
+        return ReturnType.SUCCESS
