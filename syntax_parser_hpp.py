@@ -46,6 +46,12 @@ class CppHeaderParser(SyntaxParser):
         self.__init_modifier()
         self.filter_keywords = []
 
+        self.ret_map = {
+            'TRUE': 'HBool',
+            'FALSE': 'HBool',
+            'HResult': 'HResult',
+        }
+
     def __del__(self):
         super().__del__()
 
@@ -69,7 +75,7 @@ class CppHeaderParser(SyntaxParser):
         #print('name = ', class_name)
         return class_name
 
-    def __get_each_class_code(self, code):
+    def get_each_class_code(self, code):
         """
         OUT:
             {"class1":"code1", "class2":"code2"}
@@ -101,7 +107,7 @@ class CppHeaderParser(SyntaxParser):
             clz_codes[clz] = self.__remove_curly_brace(code[idx:idx + eidx])
 
             # if there is class code in the class 
-            clz_idxs, nested_class_codes = self.__get_each_class_code(clz_codes[clz][:])
+            clz_idxs, nested_class_codes = self.get_each_class_code(clz_codes[clz][:])
             for nclz, nclz_code in nested_class_codes.items():
                 clz_codes["nested::" + nclz] = nclz_code
 
@@ -264,6 +270,7 @@ class CppHeaderParser(SyntaxParser):
 
     def __split_return(self, func_expr, clz):
         expr = self.__remove_whitespace_between_brace(func_expr)
+        #print('expr = ', expr)
         i = 0
         n = len(expr)
         res = []
@@ -413,13 +420,13 @@ class CppHeaderParser(SyntaxParser):
 
         return res, vars
 
-    def __get_doxy_params(self, code, patterns):
+    def __get_doxy_patterns(self, code, patterns):
         doxy_params = []
         for line in code:
             for param_type, param_pattern in patterns.items():
                 m = re.search(param_pattern, line)
                 if m:
-                    line = line[m.end():].replace(':', ' ')                    
+                    line = line[m.end():].replace(':', ' ')    
                     idx = line.find('\n')
                     line = line[:idx]
                     param = line.split()[0].replace(',', '')
@@ -784,7 +791,7 @@ class CppHeaderParser(SyntaxParser):
             missing rules : {(cls, cls_type) : [missing_pattern_name1, missing_pattern_name2}
         """
         rules = cfg.get_rules()
-        get_each_class_code, clz_codes = self.__get_each_class_code(code)
+        get_each_class_code, clz_codes = self.get_each_class_code(code)
         if not clz_codes:
             return None
 
@@ -826,7 +833,7 @@ class CppHeaderParser(SyntaxParser):
             {"class1" : {"public":[method1, method2], "protected":[method3]}, 
              "class2" : {"public":[method4, method5]}}
         """
-        get_each_class_code, clz_codes = self.__get_each_class_code(code)
+        get_each_class_code, clz_codes = self.get_each_class_code(code)
         if not clz_codes:
             return None
 
@@ -847,7 +854,8 @@ class CppHeaderParser(SyntaxParser):
 
         return clz_methods    # missing_rules
 
-    def get_doxy_comment_method_chunks(self, code):
+    def get_doxy_comment_method_chunks(self, code, clz):
+        #print(code)
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
         res = []
         n = len(code)
@@ -867,12 +875,17 @@ class CppHeaderParser(SyntaxParser):
         m = re.finditer(comment_pattern, code)
         m = list(m)
 
-        patt = re.compile('@\s*param\[\s*(in|out)\s*\]')
+        #patt = re.compile('@\s*param\[\s*(in|out)\s*\]')
+        patt = re.compile('@\s*brief')
         method_m = []
 
         for item in m:
             start, end = item.span()[0], item.span()[1]
-            if not patt.search(code[start:end + 1]):
+            comment_code = code[start:end + 1]
+            # print('>>>>>>>>>>>')
+            # print(comment_code)
+            # print('<<<<<<<<<<<')
+            if not patt.search(comment_code):
                 continue
 
             method_m += item,
@@ -893,7 +906,10 @@ class CppHeaderParser(SyntaxParser):
 
         return res
 
-    def verify_doxycoment_methods(self, comment_code, is_dup_permitted=False):
+    def verify_doxycoment_methods(self, comment_code, whole_code, clz, pos_line, is_dup_permitted=False):
+        # print('--------------->>')
+        # print(comment_code)
+        # print('---------------<<')
         res = RetType.SUCCESS
         errs = []
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
@@ -904,19 +920,24 @@ class CppHeaderParser(SyntaxParser):
             comment = comment_code[m.start():m.end()]
             code = re.compile("//.*").sub("", comment_code[m.end() + 1:])
 
-        lines = self.__get_split_lines(comment)
+        commnet_lines = self.__get_split_lines(comment)
 
         patterns = {
             'out_param': '@\s*param\s*\[\s*out\s*\]',
             'in_param': '@\s*param\s*\[\s*in\s*\]',
         }
 
-        doxy_params = self.__get_doxy_params(lines, patterns)
+        doxy_params = self.__get_doxy_patterns(commnet_lines, patterns)
+        doxy_returns = self.__get_doxy_patterns(commnet_lines, {'return': '@\s*(retval|return)\s*'})
 
         func_code = self.__get_func_code(code)
+        #print(func_code)
         if not func_code:
             errs += 'ERROR: no code but comment',
             return RetType.WARN, errs
+
+        func_idx = whole_code.find(func_code)
+        err_line = self.find_line(pos_line, func_idx)
 
         code_params = []
         ret, err = self.__get_code_params(func_code, code_params)
@@ -924,21 +945,38 @@ class CppHeaderParser(SyntaxParser):
         if RetType.ERROR == ret:
             return ret, errs
 
+        return_code = self.__split_return(func_code, 'None')
+        #print('return = ', return_code)
+        if return_code in {'explicit', 'virtual'}:
+            return_code = None
+
+        if return_code and -1 != return_code.find(clz):
+            return_code = None
+
         for code_param in code_params:
             if code_param not in doxy_params:
-                errs += 'ERROR: \'' + code_param + '\' is not documented',
+                errs += (err_line, 'ERROR: \'' + code_param + '\' is not documented'),
                 res = RetType.ERROR
 
         for doxy_param_name in doxy_params:
             if doxy_param_name not in code_params:
-                errs += 'ERROR: \'' + doxy_param_name + \
-                    '\' does not exist in the code',
+                errs += (err_line, 'ERROR: \'' + doxy_param_name + \
+                    '\' does not exist in the code'),
                 res = RetType.ERROR
             elif not is_dup_permitted:
                 code_params.pop(code_params.index(doxy_param_name))
 
+        if (return_code and 'void' not in return_code) and not doxy_returns:
+            errs += (err_line, 'ERROR: return is not documented' + ' ->' + return_code),
+            res = RetType.ERROR
+
+        if (return_code and 'void' not in return_code) and not doxy_returns:
+            errs += (err_line, 'ERROR: return does not exist in the code' + \
+                ' ret_code=' + return_code + ' doxy_ret=' + str(doxy_returns)),
+            res = RetType.ERROR
+
         if errs:
-            errs.insert(0, ' @ {}'.format(func_code))
+            errs.insert(0, ('', ' @ {}'.format(func_code)))
 
         return res, errs
 
@@ -950,3 +988,35 @@ class CppHeaderParser(SyntaxParser):
             return None
 
         return ''.join(lines)
+
+    def get_line_pos(self, code):
+        n = len(code)
+        i = 0
+        line = 1
+        pos_line = []
+
+        while i < n:
+            if code[i] == '\n':
+                pos_line += (i, line),
+                line += 1
+            i += 1
+
+        pos_line += (i, line),
+        return pos_line
+
+    def find_line(self, pos_line, pos):
+        l = 0
+        end = r = len(pos_line)
+
+        while l <= r:
+            m = (l + r)//2
+            if pos_line[max(0, m - 1)][0] <= pos <= pos_line[min(end, m)][0]:
+                return pos_line[m][1]
+
+            if pos_line[m][0] < pos:
+                l = m + 1
+            else:
+                r = m - 1
+
+        return -1
+

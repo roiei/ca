@@ -30,21 +30,27 @@ class DoxygenVerificationHandler(Cmd):
                 if file_type not in parsers:
                     continue
 
-                code = parsers[file_type].get_code(file)
-                if not code:
+                whole_code = parsers[file_type].get_code(file)
+                if not whole_code:
                     continue
 
-                comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code)
-                if not comment_codes:
-                    continue
+                clz_idxs, clz_codes = parsers[file_type].get_each_class_code(whole_code)
+                for clz, code in clz_codes.items():
+                    comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
+                    if not comment_codes:
+                        continue
 
-                for line, comment_code in comment_codes:
-                    res, errs = parsers[file_type].verify_doxycoment_methods(comment_code, 
-                        cfg.is_duplicate_param_permitted())
-                    if res is not RetType.SUCCESS and res is not RetType.WARN:
-                        print(' * file = {} / line = {}'.format(file, line))
-                        for err in errs:
-                            print(err)
-                        print('\n')
+                    pos_line = parsers[file_type].get_line_pos(whole_code)
+
+                    for line, comment_code in comment_codes:
+                        res, errs = parsers[file_type].verify_doxycoment_methods(\
+                            comment_code, whole_code, clz, pos_line,
+                            cfg.is_duplicate_param_permitted())
+                        if res is not RetType.SUCCESS and res is not RetType.WARN:
+                            #print(' * file = {} / line = {}'.format(file, line))
+                            print(' * file = {}'.format(file))
+                            for line, err in errs:
+                                print('>>', err + ' @ ' + str(line))
+                            print('\n')
 
         return True

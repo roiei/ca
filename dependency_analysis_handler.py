@@ -80,9 +80,9 @@ class DependencyAnalysisHandler(Cmd):
         graph = self.register_fan_ins(dep_graph)
         self.calc_stability(graph)
 
-        print('+traverse')
-        self.traverse_graph(graph)
-        print()
+        # print('+traverse')
+        # self.traverse_graph(graph)
+        # print()
 
         edges = self.get_links(graph)
         NetworkX.draw_layered_diagram(graph, edges, self.dep_cfg)
