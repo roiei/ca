@@ -79,6 +79,7 @@ class UtilPrint:
                 if n%item_len:
                     num_lines += 1
 
+                #print(mx_lines, num_lines, n, item_len)
                 mx_lines = max(mx_lines, num_lines)
 
                 line_cnt = 0

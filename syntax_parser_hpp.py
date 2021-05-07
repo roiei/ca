@@ -400,6 +400,9 @@ class CppHeaderParser(SyntaxParser):
         return params
 
     def __get_variable_name(self, params):
+        """
+            get variable name from each parameter
+        """
         vars = []
         res = True
 
@@ -460,7 +463,7 @@ class CppHeaderParser(SyntaxParser):
         ret_var, code_param = self.__get_variable_name(params)
         code_params += code_param
         if not ret_var:
-            errs += 'ERROR: some param name is not designated in the code',
+            errs += 'ERROR: varialbe is not defined in the param code',
             return RetType.WARN, errs
 
         return RetType.SUCCESS, errs
@@ -941,7 +944,7 @@ class CppHeaderParser(SyntaxParser):
 
         code_params = []
         ret, err = self.__get_code_params(func_code, code_params)
-        errs += err
+        errs += [('', e) for e in err]
         if RetType.ERROR == ret:
             return ret, errs
 
