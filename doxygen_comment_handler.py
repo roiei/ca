@@ -35,7 +35,7 @@ class DoxygenVerificationHandler(Cmd):
             if not files:
                 continue
 
-            dir_errs = collections.defaultdict(list)
+            dir_errs = collections.defaultdict(lambda: collections.defaultdict(list))
             for file, file_type in files:
                 if file_type not in parsers:
                     continue
@@ -44,9 +44,20 @@ class DoxygenVerificationHandler(Cmd):
                 if not whole_code:
                     continue
 
+                clz_methods = parsers[file_type].get_methods(whole_code)
                 clz_idxs, clz_codes = parsers[file_type].get_each_class_code(whole_code)
+
                 for clz, code in clz_codes.items():
                     comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
+                    #comment_codes = parsers[file_type].get_doxy_comment_method_chunks_2(code, clz, clz_methods)
+                    #print('comment_codes = ', comment_codes)
+                    #sys.exit()
+
+                    # for clz_name, method_info in clz_methods.items():
+                    #     for attr, methods in method_info.items():
+                    #         for method in methods:
+                    #             print(method) # (method, param, ret)
+
                     if not comment_codes:
                         continue
 
@@ -57,11 +68,7 @@ class DoxygenVerificationHandler(Cmd):
                             comment_code, whole_code, clz, pos_line,
                             cfg.is_duplicate_param_permitted())
                         if res is not RetType.SUCCESS and res is not RetType.WARN:
-                            # print(' * file = {}'.format(file))
-                            # for line, err in errs:
-                            #     print('>>', err + ' @ ' + str(line))
-                            # print('\n')
-                            dir_errs[file] += errs
+                            dir_errs[file][clz] += errs
 
                         if errs:
                             err_stats[directory][file][clz] += \
@@ -70,15 +77,23 @@ class DoxygenVerificationHandler(Cmd):
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
                 for clz, freq in clzs.items())
             if num_err:
-                self.print_doxy_analysis_stats(directory, err_stats[directory], directory)
-                for file, errs in dir_errs.items():
-                    print(' * file = {}'.format(file))
-                    for line, err in errs:
-                        print('>>', err + ' @ ' + str(line))
+                self.print_doxy_analysis_stats(directory, dir_errs, directory)
+
+                for file, clzs in err_stats[directory].items():
+                    if not dir_errs[file]:
+                        continue
+
+                    print('file: {}'.format(file))
+                    for clz, errs in dir_errs[file].items():
+                        for line, err in errs:
+                            log_msg = err
+                            if -1 != line:
+                                log_msg = '\t' + '>> ' + log_msg + ' @ ' + str(line)
+                            print('\t' + log_msg)
                     print('\n')
 
-
         self.print_doxy_analysis_overall_stats(err_stats, 'overall')
+        self.print_doxy_analysis_dir_stats(err_stats, 'each')
         return True
 
     def print_doxy_analysis_overall_stats(self, err_stats, title=''):
@@ -100,20 +115,47 @@ class DoxygenVerificationHandler(Cmd):
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
             col_widths, cols, rows)
 
-    def print_doxy_analysis_stats(self, dir, stat, title=''):
+    def print_doxy_analysis_dir_stats(self, err_stats, title=''):
+        cols = ['pkg', '# err classes', '# errs']
+        #cols = ['dir name', 'class name', '# err']
+        rows = []
+        col_widths = [35, 14, 12]
+
+        for dir, files in err_stats.items():
+            module_name = dir.split(PlatformInfo.get_delimiter())
+            module_name = '-'.join(module_name[-4:])
+
+            num_err = sum(freq for file, clzs in files.items() for clz, freq in clzs.items())
+            if not num_err:
+                continue
+
+            num_clzs = sum(len(clzs.keys()) for file, clzs in files.items())
+
+            row = []
+            row += ('{:<12s}', module_name),
+            row += ('{:<12d}', num_clzs),
+            row += ('{:<12d}', num_err),
+            rows += row,
+
+        rows.sort(key=lambda p: p[2], reverse=True)
+
+        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
+            col_widths, cols, rows)
+
+    def print_doxy_analysis_stats(self, module_name, stat, title=''):
         cols = ['file name', 'class name', '# err']
         rows = []
         col_widths = [35, 30, 5]
 
         for file, clzs in stat.items():
-            pkg_name = file.split(PlatformInfo.get_delimiter())
-            pkg_name = pkg_name[-1]
+            module_name = file.split(PlatformInfo.get_delimiter())
+            module_name = module_name[-1]
 
-            for clz, err in clzs.items():
+            for clz, errs in clzs.items():
                 row = []        
-                row += ('{:<12s}', pkg_name),
+                row += ('{:<12s}', module_name),
                 row += ('{:<12s}', clz),
-                row += ('{:<5d}', err),
+                row += ('{:<5d}',  len(errs)),
                 rows += row,
 
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 

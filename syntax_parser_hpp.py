@@ -277,12 +277,12 @@ class CppHeaderParser(SyntaxParser):
 
         expr = expr.split()
         if not expr:
-            return []
+            return None
 
         res += expr.pop(0),
 
         if clz in res[-1]:
-            return []
+            return None
 
         prefix_keywords = ['const', 'static', 'virtual']
         for kwd in prefix_keywords:
@@ -295,6 +295,16 @@ class CppHeaderParser(SyntaxParser):
             res += chunk,
 
         res = ' '.join(res)
+
+        sb = res.find('(')
+        eb = res.find(')')
+        if sb != -1 and eb != -1:
+            res = res[:sb]
+
+        #print(res, clz, res.find(clz))
+        if -1 != res.find(clz):
+            return None
+
         return res
 
     def __is_attribute(self, expr):
@@ -858,6 +868,11 @@ class CppHeaderParser(SyntaxParser):
         return clz_methods    # missing_rules
 
     def get_doxy_comment_method_chunks(self, code, clz):
+        """
+            find doxygen comment block
+            regarding doxy comment
+                /** ~~ */
+        """
         #print(code)
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
         res = []
@@ -879,7 +894,9 @@ class CppHeaderParser(SyntaxParser):
         m = list(m)
 
         #patt = re.compile('@\s*param\[\s*(in|out)\s*\]')
-        patt = re.compile('@\s*brief')
+        #doxy_cmt_pattern = '/\*\*[].\w*@\s[]*\*/'
+        doxy_cmt_pattern = '@\s*brief'
+        patt = re.compile(doxy_cmt_pattern)
         method_m = []
 
         for item in m:
@@ -909,6 +926,30 @@ class CppHeaderParser(SyntaxParser):
 
         return res
 
+    def get_doxy_comment_method_chunks_2(self, code, clz, clz_methods):
+        """
+            under development
+        """
+        for attr, methods in clz_methods[clz].items():
+            for method in methods:
+                scode = code.find(method[0])
+
+                sdoxy = code[:scode].rfind('/\*\*')
+
+                print(code[sdoxy:scode])
+                sys.exit()
+
+
+        doxy_cmt_pattern = '/\*\*[].\w*@\s[]*\*/'
+        comment_pattern = re.compile(doxy_cmt_pattern)
+
+        m = re.finditer(comment_pattern, code)
+        m = list(m)
+
+        for item in m:
+            start, end = item.span()[0], item.span()[1]
+
+
     def verify_doxycoment_methods(self, comment_code, whole_code, clz, pos_line, is_dup_permitted=False):
         # print('--------------->>')
         # print(comment_code)
@@ -934,6 +975,7 @@ class CppHeaderParser(SyntaxParser):
         doxy_returns = self.__get_doxy_patterns(commnet_lines, {'return': '@\s*(retval|return)\s*'})
 
         func_code = self.__get_func_code(code)
+
         #print(func_code)
         if not func_code:
             errs += 'ERROR: no code but comment',
@@ -948,38 +990,41 @@ class CppHeaderParser(SyntaxParser):
         if RetType.ERROR == ret:
             return ret, errs
 
-        return_code = self.__split_return(func_code, 'None')
-        #print('return = ', return_code)
+        return_code = self.__split_return(func_code, clz)
+        #print('return = ', return_code, 'for func = ', func_code)
         if return_code in {'explicit', 'virtual'}:
             return_code = None
 
-        if return_code and -1 != return_code.find(clz):
+        if return_code and (-1 != return_code.find(clz) or (-1 != clz.find(return_code))):
+            # if return_code != clz:
+            #     errs += (err_line, 'did you try to declare constructor?'),
+            #     res = RetType.ERROR
             return_code = None
 
         for code_param in code_params:
             if code_param not in doxy_params:
-                errs += (err_line, 'ERROR: \'' + code_param + '\' is not documented'),
+                errs += (err_line, '\'' + code_param + '\' is not documented'),
                 res = RetType.ERROR
 
         for doxy_param_name in doxy_params:
             if doxy_param_name not in code_params:
-                errs += (err_line, 'ERROR: \'' + doxy_param_name + \
+                errs += (err_line, '\'' + doxy_param_name + \
                     '\' does not exist in the code'),
                 res = RetType.ERROR
             elif not is_dup_permitted:
                 code_params.pop(code_params.index(doxy_param_name))
 
         if (return_code and 'void' not in return_code) and not doxy_returns:
-            errs += (err_line, 'ERROR: return is not documented' + ' ->' + return_code),
+            errs += (err_line, 'return \"{}\" is not documented'.format(return_code)),
             res = RetType.ERROR
 
         if (return_code and 'void' not in return_code) and not doxy_returns:
-            errs += (err_line, 'ERROR: return does not exist in the code' + \
-                ' ret_code=' + return_code + ' doxy_ret=' + str(doxy_returns)),
+            errs += (err_line, 'return \"{}\" does not exist in the code'.\
+                format(return_code)),
             res = RetType.ERROR
 
         if errs:
-            errs.insert(0, ('', ' @ {}'.format(func_code)))
+            errs.insert(0, (-1, 'method: {}'.format(func_code)))
 
         return res, errs
 
