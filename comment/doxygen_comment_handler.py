@@ -1,7 +1,11 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
 from cmd_interface import *
 from util.util_file import *
 from util.util_print import *
-from syntax_parser_factory import *
+from syntax_parser.syntax_parser_factory import *
 
 
 class DoxygenErrorStats:

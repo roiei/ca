@@ -1,6 +1,6 @@
-from syntax_parser import *
-from syntax_parser_hpp import *
-from syntax_parser_cpp import *
+from syntax_parser.syntax_parser import *
+from syntax_parser.syntax_parser_hpp import *
+from syntax_parser.syntax_parser_cpp import *
 
 
 class SyntaxParserFactory:

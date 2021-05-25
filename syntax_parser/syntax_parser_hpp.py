@@ -1,15 +1,14 @@
 import re
-import os
-import sys
-from syntax_parser_factory import *
+
+from syntax_parser.syntax_parser_factory import *
 import collections
-from search_patterns_cpp import *
-from tries import *
+from syntax_parser.search_patterns_cpp import *
+from common.tries import *
 from config_reader import *
 from file_info_types import *
 from foundation.types import *
 from util.util_log import *
-from cpp_parser import *
+from syntax_parser.cpp_parser import *
 
 
 logger = Logger(False)
@@ -18,7 +17,10 @@ logger = Logger(False)
 class CppHeaderParser(SyntaxParser):
     def __init__(self, name):
         super().__init__(name)
-        self.cfg_reader = ConfigReader(os.path.dirname(os.path.realpath(__file__)) + '/cfg_cpp.conf')
+        deli = PlatformInfo.get_delimiter()
+        self.cfg_reader = ConfigReader(
+            os.path.dirname(os.path.realpath(__file__)) + 
+            deli + '..' + deli  + 'config' + deli  + 'cfg_cpp.conf')
         self.cfg_json = self.cfg_reader.readAsJSON()
         if None == self.cfg_json:
             sys.exit('wrong configuration file!')

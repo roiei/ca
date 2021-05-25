@@ -2,17 +2,22 @@
 
 import os
 import sys
-from verify import *
+sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+
+
+import os
+import sys
+from design_verification.verify import *
 from help_msg import *
 from config_reader import *
 #from boot_splash import *
 from option import *
 from util.time_tracker import *
-from doxygen_comment_handler import *
-from verify_handler import *
-from enum_handler import *
-from dependency_analysis_handler import *
-from call_dependency_analysis_handler import *
+from comment.doxygen_comment_handler import *
+from design_verification.verify_handler import *
+from enu.enum_handler import *
+from dependency.dependency_analysis_handler import *
+from dependency.call_dependency_analysis_handler import *
 from util.platform_info import *
 
 
@@ -86,8 +91,9 @@ def execute_handler(cmd, opts, cfg):
 
 
 def execute(cmd, opts):
+    delimeter = PlatformInfo.get_delimiter()
     cfg_reader = ConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
-        PlatformInfo.get_delimiter() + 'cfg_csi.conf')
+        delimeter + 'config' + delimeter + 'cfg_csi.conf')
     cfg = cfg_reader.getConfig(cfg_reader.readAsJSON())
     override_cfg(cfg, opts)
 

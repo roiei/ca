@@ -1,7 +1,7 @@
 from cmd_interface import *
 from util.util_file import *
-from syntax_parser_factory import *
-from verify import *
+from syntax_parser.syntax_parser_factory import *
+from design_verification.verify import *
 
 
 def print_missing_rules(res_dirs, num_missings, cfg):

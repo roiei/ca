@@ -1,15 +1,13 @@
 import re
-import os
-import sys
-from syntax_parser_factory import *
+
+from syntax_parser.syntax_parser_factory import *
 import collections
-from search_patterns_cpp import *
-from tries import *
+from syntax_parser.search_patterns_cpp import *
 from config_reader import *
 from file_info_types import *
 from foundation.types import *
 from util.util_log import *
-from cpp_parser import *
+from syntax_parser.cpp_parser import *
 
 
 DEBUG_MSG_ON = False

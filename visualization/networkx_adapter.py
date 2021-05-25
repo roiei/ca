@@ -3,7 +3,7 @@ from matplotlib.pyplot import figure, text
 import np
 import sys, networkx as nx, matplotlib.pyplot as plt
 import collections
-from module_types import *
+from common.module_types import *
 
 
 class NetworkX:

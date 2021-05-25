@@ -1,5 +1,5 @@
 import collections
-from module_types import *
+from common.module_types import *
 from util.util_file import *
 import re
 

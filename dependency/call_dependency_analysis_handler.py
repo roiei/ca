@@ -1,3 +1,4 @@
+
 from cmd_interface import *
 from util.util_file import *
 from util.util_print import *
@@ -5,11 +6,11 @@ import copy
 import collections
 from visualization.networkx_adapter import *
 from util.platform_info import *
-from cmake_parser import *
-from pro_parser import *
-from module_types import *
-from dependency_config import *
-from syntax_parser_factory import *
+from build_parser.cmake_parser import *
+from build_parser.pro_parser import *
+from common.module_types import *
+from dependency.dependency_config import *
+from syntax_parser.syntax_parser_factory import *
 import matplotlib.pyplot as plt
 import matplotlib.table as tbl
 import numpy as np  

@@ -1,13 +1,14 @@
+
 from cmd_interface import *
 from util.util_file import *
 import copy
 import collections
 from visualization.networkx_adapter import *
 from util.platform_info import *
-from cmake_parser import *
-from pro_parser import *
-from module_types import *
-from dependency_config import *
+from build_parser.cmake_parser import *
+from build_parser.pro_parser import *
+from common.module_types import *
+from dependency.dependency_config import *
 
 
 class BuildScriptParser:
