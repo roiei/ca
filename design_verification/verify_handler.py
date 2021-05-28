@@ -94,7 +94,7 @@ class CPPVerificationHandler(Cmd):
 
     def execute(self, opts, cfg):
         locations = UtilFile.get_dirs_files(opts["path"], \
-            cfg.get_recursive(), cfg.get_extensions())
+            cfg.get_recursive(), cfg.get_recursive_depth(), cfg.get_extensions())
         if not locations:
             return False, None
 

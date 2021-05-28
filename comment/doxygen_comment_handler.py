@@ -58,6 +58,7 @@ class DoxygenVerificationHandler(Cmd):
                 pos_line = parsers[file_type].get_line_pos(whole_code)
 
                 for clz, code in clz_codes.items():
+                    dir_errs[file][clz] = dir_errs[file][clz]
                     comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
                     all_methods = set(parsers[file_type].get_methods_in_class(clz, code, whole_code, pos_line))
 
@@ -69,7 +70,7 @@ class DoxygenVerificationHandler(Cmd):
                     for method, method_code, line, num_sig in all_methods:
                         stat.num_items += num_sig
                         if method_code not in commented_methods:
-                            dir_errs[file][clz] += (line, 'method {} is not documented'.format(method)),
+                            dir_errs[file][clz] += (line, 'method: {} is not documented'.format(method)),
                             num_no_commented += 1
 
                     stat.tot_method += len(all_methods)
@@ -98,22 +99,32 @@ class DoxygenVerificationHandler(Cmd):
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
                 for clz, freq in clzs.items())
-            if num_err:
-                self.print_doxy_analysis_stats(directory, dir_errs, directory)
 
+            self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
+            if num_err:
                 for file, clzs in err_stats[directory].items():
                     if not dir_errs[file]:
                         continue
 
+                    num_err_in_file = sum([len(errs) for clz, errs in dir_errs[file].items()])
+                    if not num_err_in_file:
+                        continue
+
                     print('file: {}'.format(file))
                     for clz, errs in dir_errs[file].items():
-                        #print(errs)
+                        if not errs:
+                            continue
+                        print('\tclass: ', clz)
                         for line, err in errs:
-                            if err.startswith('method:'):
-                                line += 1
                             log_msg = err
                             if -1 != line:
                                 log_msg = '\t' + '>> ' + log_msg + ' @ ' + str(line)
+
+                            if err.startswith('method:'):
+                                line += 1
+                            else:
+                                log_msg = '\t' + log_msg
+                                
                             print('\t' + log_msg)
                     print('\n')
 
@@ -178,7 +189,7 @@ class DoxygenVerificationHandler(Cmd):
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
             col_widths, cols, rows)
 
-    def print_doxy_analysis_stats(self, module_name, stat, title=''):
+    def print_doxy_analysis_stats(self, module_name, stat, title='', num_err=0):
         cols = ['file name', 'class name', '# err']
         rows = []
         col_widths = [35, 30, 5]
@@ -194,7 +205,7 @@ class DoxygenVerificationHandler(Cmd):
                 row += ('{:<5d}',  len(errs)),
                 rows += row,
 
-        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
+        UtilPrint.print_lines_with_custome_lens(' * stats: {} : err={}'.format(title, num_err), 
             col_widths, cols, rows)
         print()
 

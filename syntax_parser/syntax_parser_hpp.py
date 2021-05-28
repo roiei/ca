@@ -287,6 +287,9 @@ class CppHeaderParser(SyntaxParser):
         if clz in res[-1]:
             return None
 
+        if not expr:
+            return None
+
         prefix_keywords = ['const', 'static', 'virtual']
         for kwd in prefix_keywords:
             if res[-1] == kwd and expr:
@@ -304,7 +307,7 @@ class CppHeaderParser(SyntaxParser):
         if sb != -1 and eb != -1:
             res = res[:sb]
 
-        #print(res, clz, res.find(clz))
+        #print(': ', res, clz, res.find(clz))
         if -1 != res.find(clz):
             return None
 
@@ -1105,6 +1108,8 @@ class CppHeaderParser(SyntaxParser):
                 res = RetType.ERROR
             elif not is_dup_permitted:
                 code_params.pop(code_params.index(doxy_param_name))
+
+        #print(return_code)
 
         if (return_code and 'void' not in return_code) and not doxy_returns:
             errs += (err_line, 'return \"{}\" is not documented'.format(return_code)),
