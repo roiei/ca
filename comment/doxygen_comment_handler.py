@@ -10,8 +10,10 @@ from syntax_parser.syntax_parser_factory import *
 
 class DoxygenErrorStats:
     def __init__(self):
-        self.num_err = 0
-        self.clz_num_err = collections.defaultdict(int)
+        self.tot_method = 0
+        self.err_method = 0
+        self.num_items = 0
+        self.num_errs = 0
 
 
 class DoxygenVerificationHandler(Cmd):
@@ -23,7 +25,7 @@ class DoxygenVerificationHandler(Cmd):
 
     def execute(self, opts, cfg):
         locations = UtilFile.get_dirs_files(opts["path"], \
-            cfg.get_recursive(), cfg.get_extensions())
+            cfg.get_recursive(), cfg.get_recursive_depth(), cfg.get_extensions())
         if not locations:
             return False, None
 
@@ -34,6 +36,7 @@ class DoxygenVerificationHandler(Cmd):
             return False, None
 
         err_stats = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
+        stat = DoxygenErrorStats()
 
         for directory, files in locations.items():
             if not files:
@@ -48,35 +51,47 @@ class DoxygenVerificationHandler(Cmd):
                 if not whole_code:
                     continue
 
-                clz_methods = parsers[file_type].get_methods(whole_code)
                 clz_idxs, clz_codes = parsers[file_type].get_each_class_code(whole_code)
+                pos_line = parsers[file_type].get_line_pos(whole_code)
 
                 for clz, code in clz_codes.items():
                     comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
-                    #comment_codes = parsers[file_type].get_doxy_comment_method_chunks_2(code, clz, clz_methods)
-                    #print('comment_codes = ', comment_codes)
-                    #sys.exit()
+                    all_methods = set(parsers[file_type].get_methods_in_class(clz, code, whole_code, pos_line))
 
-                    # for clz_name, method_info in clz_methods.items():
-                    #     for attr, methods in method_info.items():
-                    #         for method in methods:
-                    #             print(method) # (method, param, ret)
+                    commented_methods = set()
+                    for line, comment_code, method_name in comment_codes:
+                        commented_methods.add(parsers[file_type].remove_comment(comment_code))
+
+                    num_no_commented = 0
+                    for method, method_code, line, num_sig in all_methods:
+                        stat.num_items += num_sig
+                        if method_code not in commented_methods:
+                            dir_errs[file][clz] += (line, 'method {} is not documented'.format(method)),
+                            num_no_commented += 1
+
+                    stat.tot_method += len(all_methods)
+                    stat.err_method += num_no_commented
+                    stat.num_errs += num_no_commented
+                    err_stats[directory][file][clz] += num_no_commented
 
                     if not comment_codes:
                         continue
 
-                    pos_line = parsers[file_type].get_line_pos(whole_code)
-
-                    for line, comment_code in comment_codes:
+                    for line, comment_code, method_name in comment_codes:
                         res, errs = parsers[file_type].verify_doxycoment_methods(\
                             comment_code, whole_code, clz, pos_line,
                             cfg.is_duplicate_param_permitted())
+
+                        errs.sort(key=lambda p: p[0])
+
                         if res is not RetType.SUCCESS and res is not RetType.WARN:
                             dir_errs[file][clz] += errs
 
-                        if errs:
+                        if errs:                            
                             err_stats[directory][file][clz] += \
                                 max(len(errs) - 1, 0)
+                            stat.err_method += 1
+                            stat.num_errs += max(len(errs) - 1, 0)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
                 for clz, freq in clzs.items())
@@ -89,31 +104,42 @@ class DoxygenVerificationHandler(Cmd):
 
                     print('file: {}'.format(file))
                     for clz, errs in dir_errs[file].items():
+                        #print(errs)
                         for line, err in errs:
+                            if err.startswith('method:'):
+                                line += 1
                             log_msg = err
                             if -1 != line:
                                 log_msg = '\t' + '>> ' + log_msg + ' @ ' + str(line)
                             print('\t' + log_msg)
                     print('\n')
 
-        self.print_doxy_analysis_overall_stats(err_stats, 'overall')
         self.print_doxy_analysis_dir_stats(err_stats, 'each')
+        self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
         return True
 
-    def print_doxy_analysis_overall_stats(self, err_stats, title=''):
-        cols = ['# total err', '# dirs', '# classes']
+    def print_doxy_analysis_overall_stats(self, err_stats, stat, title=''):
+        cols = ['# tot err', '# dirs', '# class', \
+            '# method', '# err method', '# err', \
+            'err method %', '# items', 'err %']
         #cols = ['dir name', 'class name', '# err']
         rows = []
-        col_widths = [12, 12, 12]
+        col_widths = [11, 6, 9, 8, 12, 5, 12, 7, 5]
 
         tot_num_err = sum([freq for dir, stat in err_stats.items() for file, clzs in stat.items() for clz, freq in clzs.items()])
         tot_num_dir = len(err_stats.keys())
         num_clzs    = sum(len(clzs.keys()) for dir, stat in err_stats.items() for file, clzs in stat.items())
 
         row = []
-        row += ('{:<12d}', tot_num_err),
-        row += ('{:<12d}', tot_num_dir),
-        row += ('{:<12d}', num_clzs),
+        row += ('{:<9d}', tot_num_err),
+        row += ('{:<6d}', tot_num_dir),
+        row += ('{:<8d}', num_clzs),
+        row += ('{:<8d}', stat.tot_method),
+        row += ('{:<12d}', stat.err_method),
+        row += ('{:<5d}', stat.num_errs),
+        row += ('{:<0.2f}%', (stat.err_method/stat.tot_method)*100),
+        row += ('{:<5d}', stat.num_items),
+        row += ('{:<0.2f}%', (stat.num_errs/stat.num_items)*100),
         rows += row,
 
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 

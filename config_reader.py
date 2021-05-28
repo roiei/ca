@@ -15,6 +15,12 @@ class Config:
     def get_recursive(self):
         return self.cfg['recursive']
 
+    def set_recursive_depth(self, depth):
+        self.cfg['recursive_depth'] = depth
+
+    def get_recursive_depth(self):
+        return self.cfg['recursive_depth']
+
     def set_type(self, type):
         self.cfg['type'] = type
 
@@ -104,6 +110,9 @@ class ConfigReader:
         cfg = Config()
         if 'recursive' in cfg_json:
             cfg.set_recursive(cfg_json["recursive"])
+
+        if 'recursive_depth' in cfg_json:
+            cfg.set_recursive_depth(cfg_json["recursive_depth"])
 
         if 'type' in cfg_json:
             cfg.set_type(cfg_json["type"])

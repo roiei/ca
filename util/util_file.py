@@ -32,9 +32,11 @@ class UtilFile:
     file_types = collections.defaultdict(None)
 
     @staticmethod
-    def find_subdirs(url):
+    def find_subdirs(url, depth=None):
         q = [(url, 0)]
         dirs = [url]
+
+        limit = depth if depth else float('inf')
 
         while q:
             url, depth = q.pop(0)
@@ -49,7 +51,7 @@ class UtilFile:
 
             for dir_name in dir_names:
                 full_url = os.path.join(url, dir_name)
-                if os.path.isdir(full_url):
+                if os.path.isdir(full_url) and depth + 1 <= limit:
                     q += (full_url, depth + 1),
                     dirs += full_url,
 
@@ -123,13 +125,13 @@ class UtilFile:
         return res
 
     @staticmethod
-    def get_files(url, is_resursive, extension_filter = ['h', 'hpp', 'cpp', 'c']):
+    def get_files(url, is_resursive, depth, extension_filter = ['h', 'hpp', 'cpp', 'c']):
         """
         OUT
             {"dir1" : [("file1", type1), ("file2", type2)], "dir2" : ...}
         """
         # get all the sub dires
-        dirs = UtilFile.find_subdirs(url) if is_resursive else [url]
+        dirs = UtilFile.find_subdirs(url, depth) if is_resursive else [url]
         files = collections.defaultdict(list)
 
         for directory in dirs:
@@ -190,7 +192,7 @@ class UtilFile:
         return res
 
     @staticmethod
-    def get_dirs_files(directory, is_resursive, extension_filter):
+    def get_dirs_files(directory, is_resursive, depth, extension_filter):
         dirs = []
         if directory.startswith('[') and directory.endswith(']'):
             for dir in directory[1:-1].split(','):
@@ -202,7 +204,7 @@ class UtilFile:
         ret_dir_files = collections.defaultdict(list)
         for directory in dirs:
             #print(directory)
-            dir_files = UtilFile.get_files(directory, is_resursive, extension_filter)
+            dir_files = UtilFile.get_files(directory, is_resursive, depth, extension_filter)
 
             for directory, files in dir_files.items():
                 ret_dir_files[directory] += files

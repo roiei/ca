@@ -36,6 +36,7 @@ class CppHeaderParser(SyntaxParser):
             "prohibit_nested_class": self.__check_nested_class,
             "modularity_num_funcs": self.__check_cohesion_num_public_methods,
             "modularity_num_params": self.__check_cohesion_num_params,
+            "prohibit_raw_pointer": self.__check_raw_pointer,
         }
 
         SearchPatternCpp.init_default_patterns()
@@ -365,6 +366,9 @@ class CppHeaderParser(SyntaxParser):
         return True, text[sx + 1:ex + 1]
 
     def __get_split_lines(self, doxy_text):
+        if not doxy_text:
+            return
+
         lines = []
         i = 0
         line = ''
@@ -475,12 +479,12 @@ class CppHeaderParser(SyntaxParser):
         ret_var, code_param = self.__get_variable_name(params)
         code_params += code_param
         if not ret_var:
-            errs += 'ERROR: varialbe is not defined in the param code',
+            errs += 'ERROR: variable is not defined in the param code',
             return RetType.WARN, errs
 
         return RetType.SUCCESS, errs
 
-    def __get_class_methods_attrs(self, clz, code):
+    def __get_class_methods_attrs(self, clz, code, whole_code=None, pos_line=None):
         """
         OUT:
             {"public":[method1, method2], "protected":[method3]}
@@ -496,6 +500,7 @@ class CppHeaderParser(SyntaxParser):
             return
 
         i = 0
+        line = -1
         n = len(code)
         modifier = 'private'
 
@@ -521,14 +526,23 @@ class CppHeaderParser(SyntaxParser):
             m = pattern.search(expr)
             #print(expr)
             if m:
-                expr = expr[m.span()[0]:m.span()[1]].strip()
+                sx = m.span()[0]
+                ex = m.span()[1]
+                expr = expr[sx:ex].strip()
+
+                if pos_line:
+                    pos = whole_code.find(expr)
+                    line = self.find_line(pos_line, pos)
+
+                #print(expr, pos_line, pos)
+                #sys.exit()
                 #print(expr)
                 logger.log('method = {}'.format(expr))
                 params = self.__split_param(expr)
                 ret = self.__split_return(expr, clz)
-                access_mod[modifier + ' method'] += (expr, params, ret),
+                access_mod[modifier + ' method'] += (expr, params, ret, line),
             elif expr and self.__is_attribute(expr):
-                access_mod[modifier + ' attribute'] += (expr, None, None),
+                access_mod[modifier + ' attribute'] += (expr, None, None, -1),
             i += 1
 
         #self.__print_class_methods(clz, access_mod)
@@ -547,7 +561,7 @@ class CppHeaderParser(SyntaxParser):
             return {kwd: True}
 
         for mod in clz_methods:
-            for method, prams, ret in clz_methods[mod]:
+            for method, prams, ret, line in clz_methods[mod]:
                 idx = method.find(kwd)
                 if -1 == idx:
                     continue
@@ -762,6 +776,24 @@ class CppHeaderParser(SyntaxParser):
 
         return res if res else {"violate_modularity": True}
 
+    # rule code
+    def __check_raw_pointer(self, clz, clz_type, clz_codes, clz_methods, cfg):
+        """
+        """
+        res = {}
+
+        for acc in clz_methods:
+            for expr, params, ret in clz_methods[acc]:
+                if params:
+                    for param in params:
+                        if '*' in param:
+                            res["violate_raw_ptr" + " -> {}".format(expr)] = False
+
+                if ret and '*' in ret:
+                    res["violate_raw_ptr" + " -> {}".format(expr)] = False
+
+        return res if res else {"violate_modularity": True}
+
     def get_method_calls(self, code):
         print(code)
         sys.exit()
@@ -773,12 +805,21 @@ class CppHeaderParser(SyntaxParser):
             return ''
 
         method_name = method[:sx]
+        if not method_name:
+            return ''
+
         method_chunks = method_name.split()
 
-        if method_chunks[-1] in {'==', '=', '+', '-'} and 'operator' in method_chunks[-2]:
-            method_name = method_chunks[-2] + method_chunks[-1]
-        else:
-            method_name = method_chunks[-1] 
+        try:
+            if len(method_chunks) > 1 and method_chunks[-1] in {'==', '=', '+', '-'} and 'operator' in method_chunks[-2]:
+                method_name = method_chunks[-2] + method_chunks[-1]
+            else:
+                method_name = method_chunks[-1] 
+        except IndexError:
+            print('index err @ method: ', method_name)
+            print(method, sx, ex)
+            print('app is terminated...')
+            sys.exit()
 
         # if 'operator' in method[:sx]:
         #     print(method[:sx])
@@ -795,6 +836,24 @@ class CppHeaderParser(SyntaxParser):
 
     def get_code_without_comment(self, url):
         return CppParser.get_code_only(url)
+
+    def remove_comment(self, code):
+        code = re.compile("(?s)/\*.*?\*/").sub("", code)
+        code = re.compile("//.*").sub("", code)
+        code.strip()
+
+        pname, pattern = SearchPatternCpp.get_pattern_methods()
+        if not pattern:
+            print('ERROR: pattern for {} is not found'.format(pname))
+            return
+
+        m = pattern.search(code)
+        if m:
+            sx = m.span()[0]
+            ex = m.span()[1]
+            code = code[sx:ex].strip()
+
+        return code
 
     def check_rules(self, code, report, cfg, rule_coverage="all"):
         """
@@ -869,6 +928,25 @@ class CppHeaderParser(SyntaxParser):
 
         return clz_methods    # missing_rules
 
+    def get_methods_in_class(self, clz_name, clz_code, whole_code, pos_line):
+        if not clz_code:
+            return None
+
+        clz_code = re.compile("(?s)/\*.*?\*/").sub("", clz_code)
+        clz_code = re.compile("//.*").sub("", clz_code)
+
+        method_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line)
+        method_names = []
+
+        for acc, methods in method_infos.items():
+            for method_code, params, ret, line in methods:
+                method_name = self.get_method_name(method_code)
+                if '' != method_name:
+                    num_signatures = len(params) + 1 if params else 0
+                    method_names += (method_name, method_code, line, num_signatures),
+
+        return method_names
+
     def get_doxy_comment_method_chunks(self, code, clz):
         """
             find doxygen comment block
@@ -915,16 +993,29 @@ class CppHeaderParser(SyntaxParser):
         pos = 0
         num_pos = len(pos_line)
 
-        for i in range(1, len(method_m)):
-            end_pos = method_m[i - 1].span()[1]
+        for i in range(len(method_m)):
+            end_pos = method_m[i].span()[1]
             while pos + 1 < num_pos and pos_line[pos][0] < end_pos:
                 pos += 1
-            res += (pos_line[pos][1], code[method_m[i - 1].span()[0]:method_m[i].span()[0] - 1]),
 
-        if len(method_m) > 0:
-            while pos + 1 < num_pos and pos_line[pos][0] < n:
-                pos += 1
-            res += (pos_line[pos][1], code[method_m[-1].span()[0]:]),
+            comment_start = method_m[i].span()[0]
+            comment_end = method_m[i].span()[1]
+
+            end = code[comment_end:].find(';')
+            method_code = code[comment_start:end + comment_end]
+
+            #print('method code = ', method_code + '\n')
+
+            method_name = self.get_method_name(method_code)
+            if '' != method_name:
+                res += (pos_line[pos][1], method_code, method_name),
+
+        # if len(method_m) > 0:
+        #     while pos + 1 < num_pos and pos_line[pos][0] < n:
+        #         pos += 1
+        #     method_code = code[method_m[-1].span()[0]:]
+        #     method_name = self.get_method_name(method_code)
+        #     res += (pos_line[pos][1], method_code, method_name),
 
         return res
 
@@ -951,10 +1042,9 @@ class CppHeaderParser(SyntaxParser):
         for item in m:
             start, end = item.span()[0], item.span()[1]
 
-
     def verify_doxycoment_methods(self, comment_code, whole_code, clz, pos_line, is_dup_permitted=False):
         # print('--------------->>')
-        # print(comment_code)
+        # print('comment_code = ', comment_code)
         # print('---------------<<')
         res = RetType.SUCCESS
         errs = []
@@ -980,7 +1070,7 @@ class CppHeaderParser(SyntaxParser):
 
         #print(func_code)
         if not func_code:
-            errs += 'ERROR: no code but comment',
+            errs += (-1, 'ERROR: no code but comment'),
             return RetType.WARN, errs
 
         func_idx = whole_code.find(func_code)
@@ -988,7 +1078,7 @@ class CppHeaderParser(SyntaxParser):
 
         code_params = []
         ret, err = self.__get_code_params(func_code, code_params)
-        errs += [('', e) for e in err]
+        errs += [(-1, e) for e in err]
         if RetType.ERROR == ret:
             return ret, errs
 
@@ -1026,7 +1116,8 @@ class CppHeaderParser(SyntaxParser):
             res = RetType.ERROR
 
         if errs:
-            errs.insert(0, (-1, 'method: {}'.format(func_code)))
+            mn = min([line for line, msg in errs])
+            errs.insert(0, (mn - 1, 'method: {}'.format(func_code)))
 
         return res, errs
 

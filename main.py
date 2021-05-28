@@ -22,12 +22,12 @@ from util.platform_info import *
 
 
 def override_cfg(cfg, opts):
-    if 'recursive' not in opts:
-        return 
-    recur = False
-    if 'True' == opts['recursive']:
-        recur = True
-    cfg.set_recursive(recur)
+    if 'recursive' in opts:
+        cfg.set_recursive(opts['recursive'])
+
+    if 'recursive_depth' in opts:
+        cfg.set_recursive(True)
+        cfg.set_recursive(opts['recursive_depth'])
 
 
 sys_ver_info = tuple(list(sys.version_info)[:3])
