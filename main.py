@@ -51,7 +51,7 @@ cmd_handlers = {
     ),
     'verify_comment': (
         DoxygenVerificationHandler(),
-        '--cmd=comment --path=./'
+        '--cmd=verify_comment --path=./ [--recursive_depth=2] [--graph=True]'
     ),
     'dependency': (
         DependencyAnalysisHandler(),

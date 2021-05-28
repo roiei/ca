@@ -6,6 +6,9 @@ from cmd_interface import *
 from util.util_file import *
 from util.util_print import *
 from syntax_parser.syntax_parser_factory import *
+import matplotlib.pyplot as plt
+import matplotlib
+import random
 
 
 class DoxygenErrorStats:
@@ -116,6 +119,9 @@ class DoxygenVerificationHandler(Cmd):
 
         self.print_doxy_analysis_dir_stats(err_stats, 'each')
         self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
+        if 'graph' in opts and opts['graph']:
+            self.draw_bar_chart(err_stats, stat)
+            self.draw_err_pie_charts(err_stats, stat)
         return True
 
     def print_doxy_analysis_overall_stats(self, err_stats, stat, title=''):
@@ -191,3 +197,49 @@ class DoxygenVerificationHandler(Cmd):
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
             col_widths, cols, rows)
         print()
+
+    def draw_bar_chart(self, err_stats, stat):
+        x_labels = ['# items', '# err']
+        values = [stat.num_items, stat.num_errs]
+        colors = ['black','red']
+         
+        plt.figure(figsize=(3, 3))
+        xtick_label_position = list(range(len(x_labels)))
+        plt.xticks(xtick_label_position, x_labels)
+         
+        plt.bar(xtick_label_position, values, color=colors)
+         
+        plt.title('Doxygen err stat',fontsize=20)
+        plt.xlabel('num items')
+        plt.ylabel('item types')
+        plt.show()
+
+    def draw_err_pie_charts(self, err_stats, stat):
+        font = {'family': 'serif', 'weight': 'normal', 'size': 7}
+        matplotlib.rc('font', **font)
+
+        ratios = []
+        labels = []
+        for dir, files in err_stats.items():
+            module_name = dir.split(PlatformInfo.get_delimiter())
+            module_name = '-'.join(module_name[-4:])
+            num_err = sum(freq for file, clzs in files.items() for clz, freq in clzs.items())
+
+            labels += module_name,
+            ratios += (num_err/stat.num_errs)*100,
+
+        explode = len(labels)*[0.05]
+
+        color_tbl = ['#ff9999', '#ffc000', '#8fd9b6', \
+            '#d395d0', 'blue', 'red', 'magenta', 'yellow', 'cyan', \
+            'purple', 'pink', 'olive', 'green', 'blue', 'brown']
+        colors = [random.choice(color_tbl) for i in range(len(labels))]
+        
+        plt.pie(ratios, labels=labels, autopct='%.1f%%', \
+            startangle=260, counterclock=False, \
+            explode=explode, shadow=True, colors=colors)
+        plt.show()
+
+
+
+
