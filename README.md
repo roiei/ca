@@ -112,8 +112,6 @@ python main.py --cmd=verify_comment --path=./ [--recursive_depth=2]
 #### result
 test.h
 ```C++
-
-
 class ITestListener {
 public:
     /**
@@ -169,7 +167,7 @@ public:
     /**
      * @brief parameterized constructor
      * @param[in] dev: Test device type
-     * @param[in] notification: enable/disable event notification
+     * @param[in] notifcation: enable/disable event notification
      */
     explicit TestParamType(const TestDeviceType& dev,
             const BoolType& notification = true);
@@ -215,6 +213,10 @@ file: D:\projects\se\ca\test\test.h
         class:  TestParamType
                 >> method: TestParamType(const TestParamType& rhs) @ 44
                         >> 'rhs' is not documented @ 45
+                >> method: explicit TestParamType(const TestDeviceType& dev,
+            const BoolType& notification = true) @ 57
+                        >> 'notification' is not documented @ 58
+                        >> 'notifcation' does not exist in the code @ 58
 ```
 
 &nbsp;
@@ -317,31 +319,44 @@ call_dependency
 &nbsp;
 
 ## configration file
+cfg.conf
 ```JSON
 {
     "type": "cpp",
     "extensions": ["h", "hpp"],
     "rules": [
-      "must::rof", 
-      "must::prohibit_protected", 
-      "must::singleton_getinstance_return", 
-      "must::class_type", 
-      "must::name_suffix", 
-      "must::prohibit_keyword", 
-      "must::prohibit_friend", 
-      "must::prohibit_nested_class",
-      "should::modularity_num_funcs",
-      "should::modularity_num_params"
+    	"must::rof", 
+    	"must::prohibit_protected", 
+    	"must::singleton_getinstance_return", 
+    	"must::class_type", 
+    	"must::name_suffix", 
+    	"must::prohibit_keyword", 
+    	"must::prohibit_friend", 
+    	"must::prohibit_nested_class",
+    	"should::modularity_num_funcs",
+    	"should::modularity_num_params",
+        "should::prohibit_raw_pointer"
     ],
     "recursive": true,
+    "recursive_depth": 2,
     "print_opt": ["print_analysis_table", "print_details"],
     "filter_suffix_name": ["manager"],
     "filter_keyword": ["std::pair", "std::tuple", "::friend"],
     "modular_matrices": {
-      "num_of_public_func": 30,
-      "num_of_params": 7
+    	"num_of_public_func": 30,
+    	"num_of_params": 7
     },
-    "json_output": false
+    "json_output": false,
+    "doxygen": {
+        "permite_duplicate_param": true
+    }
+}
+```
+
+cfg_cpp.conf
+```
+{
+    "ignore_class_name" : ["Listener", "listener", "Observer", "observer"]
 }
 ```
 
