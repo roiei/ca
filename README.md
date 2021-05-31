@@ -207,14 +207,14 @@ result
 
 file: D:\projects\se\ca\test\test.h
         class:  TestClass
-                >> method: setEventListener is not documented @ 26
-                >> method: loop is not documented @ 24
-                >> method: void setAState(const TestClassState& state) @ 31
-                        >> 'state' is not documented @ 32
-                        >> 'AState' does not exist in the code @ 32
+                >> method: loop is not documented @ 22
+                >> method: setEventListener is not documented @ 24
+                >> method: void setAState(const TestClassState& state) @ 29
+                        >> 'state' is not documented @ 30
+                        >> 'AState' does not exist in the code @ 30
         class:  TestParamType
-                >> method: TestParamType(const TestParamType& rhs) @ 46
-                        >> 'rhs' is not documented @ 47
+                >> method: TestParamType(const TestParamType& rhs) @ 44
+                        >> 'rhs' is not documented @ 45
 ```
 
 &nbsp;
