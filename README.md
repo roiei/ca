@@ -12,8 +12,7 @@ When it comes to 'Rule of Five', the CA detects which class violates the rule an
 
 ## Prerequisite
 
-pip3 install pyfiglet termcolor
-just do pip3 install -r requirements.txt
+pip3 install -r requirements.txt
 
 &nbsp;
 
