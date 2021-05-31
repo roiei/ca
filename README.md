@@ -6,7 +6,7 @@
 ## Purpose
 
 > With this CA, code can be inspected with the predefined rules regarding design rules.
-When it comes to 'Rule of Five', the CSI detects which class violates the rule and report the result.
+When it comes to 'Rule of Five', the CA detects which class violates the rule and report the result.
 
 &nbsp;
 
