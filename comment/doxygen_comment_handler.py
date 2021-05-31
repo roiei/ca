@@ -132,31 +132,30 @@ class DoxygenVerificationHandler(Cmd):
         self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
         if 'graph' in opts and opts['graph']:
             self.draw_bar_chart(err_stats, stat)
-            self.draw_err_pie_charts(err_stats, stat)
+            self.draw_err_pie_charts(err_stats, stat, 25)
         return True
 
     def print_doxy_analysis_overall_stats(self, err_stats, stat, title=''):
-        cols = ['# tot err', '# dirs', '# class', \
-            '# method', '# err method', '# err', \
-            'err method %', '# items', 'err %']
+        cols = ['# dirs', '# class', '# items', '# err', 'err %', \
+            '# method', '# err method', \
+            'err method %']
         #cols = ['dir name', 'class name', '# err']
         rows = []
-        col_widths = [11, 6, 9, 8, 12, 5, 12, 7, 5]
+        col_widths = [6, 9, 7, 5, 5, 8, 12, 12]
 
         tot_num_err = sum([freq for dir, stat in err_stats.items() for file, clzs in stat.items() for clz, freq in clzs.items()])
         tot_num_dir = len(err_stats.keys())
         num_clzs    = sum(len(clzs.keys()) for dir, stat in err_stats.items() for file, clzs in stat.items())
 
         row = []
-        row += ('{:<9d}', tot_num_err),
         row += ('{:<6d}', tot_num_dir),
         row += ('{:<8d}', num_clzs),
+        row += ('{:<7d}', stat.num_items),
+        row += ('{:<5d}', tot_num_err),
+        row += ('{:<0.2f}%', (stat.num_errs/stat.num_items)*100),
         row += ('{:<8d}', stat.tot_method),
         row += ('{:<12d}', stat.err_method),
-        row += ('{:<5d}', stat.num_errs),
         row += ('{:<0.2f}%', (stat.err_method/stat.tot_method)*100),
-        row += ('{:<5d}', stat.num_items),
-        row += ('{:<0.2f}%', (stat.num_errs/stat.num_items)*100),
         rows += row,
 
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
@@ -225,7 +224,7 @@ class DoxygenVerificationHandler(Cmd):
         plt.ylabel('item types')
         plt.show()
 
-    def draw_err_pie_charts(self, err_stats, stat):
+    def draw_err_pie_charts(self, err_stats, stat, cut_off=None):
         font = {'family': 'serif', 'weight': 'normal', 'size': 7}
         matplotlib.rc('font', **font)
 
@@ -239,12 +238,20 @@ class DoxygenVerificationHandler(Cmd):
             labels += module_name,
             ratios += (num_err/stat.num_errs)*100,
 
-        explode = len(labels)*[0.05]
+        values = list(zip(labels, ratios))
+        values.sort(key=lambda p: p[1], reverse=True)
+        print(len(values))
+        if cut_off:
+            values = values[:cut_off]
+
+        explode = len(values)*[0.05]
 
         color_tbl = ['#ff9999', '#ffc000', '#8fd9b6', \
             '#d395d0', 'blue', 'red', 'magenta', 'yellow', 'cyan', \
             'purple', 'pink', 'olive', 'green', 'blue', 'brown']
         colors = [random.choice(color_tbl) for i in range(len(labels))]
+
+        labels, ratios = zip(*values)
         
         plt.pie(ratios, labels=labels, autopct='%.1f%%', \
             startangle=260, counterclock=False, \
