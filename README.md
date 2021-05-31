@@ -1,17 +1,25 @@
 
 
-## CA (Code Analyzer)
+# CA (Code Analyzer)
 ***
 
-### Purpose
+## Purpose
 
 > With this CA, code can be inspected with the predefined rules regarding design rules.
 When it comes to 'Rule of Five', the CSI detects which class violates the rule and report the result.
 
 &nbsp;
 
+## Prerequisite
 
-### Features
+pip3 install pyfiglet termcolor
+just do pip3 install -r requirements.txt
+
+&nbsp;
+
+## Features
+
+### 1. design verification
 
 * rules of five
   * checking whether the following methods are defined or not
@@ -37,20 +45,12 @@ When it comes to 'Rule of Five', the CSI detects which class violates the rule a
 
 &nbsp;
 
-
-### Prerequisite
-
-pip3 install pyfiglet termcolor
-just do pip3 install -r requirements.txt
-
-&nbsp;
-
-
-### Usage
+#### Usage
 
 the CA can be executed as follow.
 
-python3.6 main.py --cmd=verify --path=./
+1. design verification
+python main.py --cmd=verify --path=./
 
 * argument types
   * cmd
@@ -61,12 +61,7 @@ python3.6 main.py --cmd=verify --path=./
     * 'all': print all the violations including not also 'must' items but 'should' items
     * 'must': print only 'must' items. it's default coverage
 
-&nbsp;
-
-
-#### report
-
-### verification result
+#### result
 It shows result of analysis as table below.
 user can easily find which module is the best one at the last colume of the table.
 
@@ -88,7 +83,7 @@ directory = /.../wayland/include
 &nbsp;
 
 
-### report on web page
+#### report on web page
 
 you can see the result with the web browser as follow by enabling "json_output" in the configuration file (cfg_ca.conf)
 
@@ -103,12 +98,167 @@ you can see the result with the web browser as follow by enabling "json_output" 
 
 &nbsp;
 
+### 2. comment verification
+* verify whether comment is well commented or not 
+
+&nbsp;
+
+#### usage
+python main.py --cmd=verify_comment --path=./ [--recursive_depth=2]
 
 
 &nbsp;
 
+#### result
+test.h
+```C++
 
-### enumeration result
+
+class ITestListener {
+public:
+    /**
+     * @brief The user might implement the constructor.
+     */
+    ITestListener() = default;
+
+    /**
+     * @brief The user might implement the destructor.
+     */
+    virtual ~ITestListener() = default;
+};
+
+
+class TestClass {
+public:
+    /**
+     * @brief ...
+     */
+    void func1();
+
+    ReturnType loop();
+
+    void setEventListener(std::weak_ptr<ITestListener> listener);
+
+    /**
+     * @brief This function is to set check state
+     * @param[in] AState
+     */
+    void setAState(const TestClassState& state);
+};
+
+
+class TestParamType {
+public:
+    /**
+     * @brief This function is to get the current state of event feed
+     * @retval BoolType event feed enable state
+     */
+    BoolType getEventFeed() const;
+
+    /**
+     * @brief copy constructor
+     */
+    TestParamType(const TestParamType& rhs);
+
+    /**
+     * @brief move constructor
+     * @param[in] rhs: right-hand side reference
+     */
+    TestParamType(TestParamType&& rhs);
+
+    /**
+     * @brief parameterized constructor
+     * @param[in] dev: Test device type
+     * @param[in] notification: enable/disable event notification
+     */
+    explicit TestParamType(const TestDeviceType& dev,
+            const BoolType& notification = true);
+
+    /**
+     * @brief copy assignment operator
+     * @param[in] rhs to an instance of TestParamType
+     * @retval reference to an instance of TestParamType
+     * @since 0.17rc
+     */
+    const TestParamType& operator=(const TestParamType& rhs);
+
+    /**
+     * @brief move assignment operator
+     * @param[in] rhs to an instance of TestParamType
+     * @retval reference to an instance of TestParamType
+     */
+    const TestParamType& operator=(TestParamType&& rhs);
+};
+```
+&nbsp;
+
+result
+```
+ * stats: .../project_path/test : err=5
++------------------------------------------------------------------------------+
+| file name                           | class name                     | # err |
++------------------------------------------------------------------------------+
+| test.h                              | ITestListener                  | 0     |
++-------------------------------------+--------------------------------+-------+
+| test.h                              | TestClass                      | 5     |
++-------------------------------------+--------------------------------+-------+
+| test.h                              | TestParamType                  | 2     |
++-------------------------------------+--------------------------------+-------+
+
+file: D:\projects\se\ca\test\test.h
+        class:  TestClass
+                >> method: setEventListener is not documented @ 26
+                >> method: loop is not documented @ 24
+                >> method: void setAState(const TestClassState& state) @ 31
+                        >> 'state' is not documented @ 32
+                        >> 'AState' does not exist in the code @ 32
+        class:  TestParamType
+                >> method: TestParamType(const TestParamType& rhs) @ 46
+                        >> 'rhs' is not documented @ 47
+```
+
+&nbsp;
+
+### 3. S/W component dependency analysis
+* it analyze all the dependencies of each S/W component in the given path
+* and then 
+  * 1) create dependency graph of components
+  * 2) show stability of each component node by calculating fan-in and fan-out
+
+#### usage
+python main.py --cmd=dependency --path=project_path
+
+&nbsp;
+
+#### result
+&nbsp;
+
+### 4. call frequency analysis
+call_dependency
+&nbsp;
+
+#### usage
+
+##### 1. regular use
+* main.py --cmd=call_dependency --ppath=api_path --upath=app_path
+
+##### 2. save API analysis
+* main.py --cmd=call_dependency --ppath=api_path --savefile=file_name
+
+##### 3. use stored API analysis
+* main.py --cmd=call_dependency --upath=app_path --loadfile=file_name
+
+&nbsp;
+
+#### result
+&nbsp;
+
+### 5. enumerate all the interfaces
+
+#### usage
+&nbsp;
+
+#### result
 
 ```
 /mnt/.../DataManager/include/DataFlowController.h
@@ -148,45 +298,6 @@ you can see the result with the web browser as follow by enabling "json_output" 
 ```
 
 &nbsp;
-
-### command
-
-* verify
-  * verify codes located in the give path
-* enum
-  * enumerate all the method in cpp header file
-* verify_comment
-  * verify doxygen comment
-* dependency
-* call_dependency
-
-
-&nbsp;
-
-# usage
-
-
-## dependency
-
-main.py --cmd=dependency --path=d:\projects\ccos\all
-
-
-&nbsp;
-
-## call_dependency
-
-### 1. regular use
-* main.py --cmd=call_dependency --ppath=api_path --upath=app_path
-
-### 2. save API analysis
-* main.py --cmd=call_dependency --ppath=api_path --savefile=file_name
-
-### 3. use stored API analysis
-* main.py --cmd=call_dependency --upath=app_path --loadfile=file_name
-
-
-&nbsp;
-
 
 # configuration
 
