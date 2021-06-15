@@ -51,11 +51,11 @@ cmd_handlers = {
     ),
     'verify_comment': (
         DoxygenVerificationHandler(),
-        '--cmd=verify_comment --path=./ [--recursive_depth=2] [--graph=True]'
+        '--cmd=verify_comment --path=./ [--recursive_depth=2]'
     ),
     'dependency': (
         DependencyAnalysisHandler(),
-        '--cmd=dependency --path=./  <- locate all source code here'
+        '--cmd=dependency --path=./ --prj=prj  [--graph=True]'
     ),
     'call_dependency': (
         CallDependencyAnalysisHandler(),
@@ -109,6 +109,9 @@ if __name__ == '__main__':
 
     if 'cover' not in opts:
         opts['cover'] = 'must'  # default: must
+    
+    if 'prj' not in opts:
+        opts['prj'] = 'default'
 
     try:
         cmd = opts["cmd"]

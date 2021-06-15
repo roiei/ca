@@ -78,6 +78,46 @@ class CppHeaderParser(SyntaxParser):
         #print('name = ', class_name)
         return class_name
 
+    def get_non_class_code(self, code):
+        pattern = re.compile('(enum\s*)*(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        sections = []
+        non_clz_code = code
+        skipped_offset = 0
+
+        while True:
+            m = pattern.search(code)
+            if not m:
+                break
+
+            found = m.group()
+            clz = m.groups()[2].strip()
+            idx = m.start()
+            eidx = self.__find_class_end_with_code(code, idx)
+            if -1 == eidx:
+                break
+
+            if 'enum' in found:
+                code = code[idx + eidx:]
+                skipped_offset += idx + eidx
+                continue
+
+            if -1 == idx:
+                break
+
+            scode = skipped_offset + m.span()[0]
+            ecode = skipped_offset + eidx + 3
+
+            sections.insert(0, (scode, ecode))
+            code = code[idx + eidx:]
+            skipped_offset += idx + eidx
+
+        for s, e in sections:
+            non_clz_code = non_clz_code[:s] + non_clz_code[e:]
+
+        #print('---'*10 + '\n' + non_clz_code + '\n' + '---'*10)
+        return non_clz_code
+
+
     def get_each_class_code(self, code):
         """
         OUT:
@@ -126,6 +166,30 @@ class CppHeaderParser(SyntaxParser):
             code = code[idx + eidx:]
 
         return res_found_clz, clz_codes
+
+    def get_enum_codes(self, code, whole_code, pos_line):
+        """
+        OUT:
+            {"class1":"code1", "class2":"code2"}
+        """
+        pattern = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*\s*{\s*[\/*<\d\s,\w=|+();:!@#$%^&()-_=+\"\',~`]*}\s*;')
+        clz_codes = collections.defaultdict(str)
+        res_found_clz = []
+
+        enum_codes = []
+        m = re.finditer(pattern, code)
+        m = list(m)
+        for item in m:
+            start, end = item.span()[0], item.span()[1]
+            expr = code[start:end + 1]
+            pos = whole_code.find(expr)
+
+            line = self.find_line(pos_line, pos)
+            name = self.get_enum_name(expr)
+            enum_codes += (name, expr, line),
+            #print('enum code = ', expr)
+
+        return enum_codes
 
     def __find_class_end_with_regex(self, code, start_idx):
         """
@@ -824,11 +888,23 @@ class CppHeaderParser(SyntaxParser):
             print('app is terminated...')
             sys.exit()
 
-        # if 'operator' in method[:sx]:
-        #     print(method[:sx])
-        #     print(method_name)
-
         return method_name
+
+    def get_enum_name(self, chunk):
+        pattern = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*')
+        m = pattern.search(chunk)
+        enum_name = ''
+        if m:
+            sx = m.span()[0]
+            ex = m.span()[1]
+            enum_name = chunk[sx:ex]
+            enum_name = enum_name.split()
+            while enum_name and enum_name[0] in {'enum', 'class'}:
+                enum_name.pop(0)
+
+            enum_name = ''.join(enum_name)
+
+        return enum_name
 
     def set_suffix_filter(self, suffixes):
         for name in suffixes:
@@ -950,13 +1026,12 @@ class CppHeaderParser(SyntaxParser):
 
         return method_names
 
-    def get_doxy_comment_method_chunks(self, code, clz):
+    def get_doxy_comment_chunks(self, code, clz, get_name=None):
         """
             find doxygen comment block
             regarding doxy comment
                 /** ~~ */
         """
-        #print(code)
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
         res = []
         n = len(code)
@@ -976,8 +1051,6 @@ class CppHeaderParser(SyntaxParser):
         m = re.finditer(comment_pattern, code)
         m = list(m)
 
-        #patt = re.compile('@\s*param\[\s*(in|out)\s*\]')
-        #doxy_cmt_pattern = '/\*\*[].\w*@\s[]*\*/'
         doxy_cmt_pattern = '@\s*brief'
         patt = re.compile(doxy_cmt_pattern)
         method_m = []
@@ -985,9 +1058,6 @@ class CppHeaderParser(SyntaxParser):
         for item in m:
             start, end = item.span()[0], item.span()[1]
             comment_code = code[start:end + 1]
-            # print('>>>>>>>>>>>')
-            # print(comment_code)
-            # print('<<<<<<<<<<<')
             if not patt.search(comment_code):
                 continue
 
@@ -1005,22 +1075,23 @@ class CppHeaderParser(SyntaxParser):
             comment_end = method_m[i].span()[1]
 
             end = code[comment_end:].find(';')
-            method_code = code[comment_start:end + comment_end]
+            chunk_code = code[comment_start:end + comment_end + 1]
 
-            #print('method code = ', method_code + '\n')
+            # print('chunk_code = ', chunk_code)
+            # print('-----')
 
-            method_name = self.get_method_name(method_code)
-            if '' != method_name:
-                res += (pos_line[pos][1], method_code, method_name),
-
-        # if len(method_m) > 0:
-        #     while pos + 1 < num_pos and pos_line[pos][0] < n:
-        #         pos += 1
-        #     method_code = code[method_m[-1].span()[0]:]
-        #     method_name = self.get_method_name(method_code)
-        #     res += (pos_line[pos][1], method_code, method_name),
+            if get_name:
+                method_name = get_name(chunk_code)
+                if '' != method_name:
+                    res += (pos_line[pos][1], chunk_code, method_name),
 
         return res
+
+    def get_doxy_comment_method_chunks(self, code, clz):
+        return self.get_doxy_comment_chunks(code, clz, self.get_method_name);
+
+    def get_doxy_comment_enum_chunks(self, code):
+        return self.get_doxy_comment_chunks(code, None, self.get_enum_name);
 
     def get_doxy_comment_method_chunks_2(self, code, clz, clz_methods):
         """
@@ -1125,6 +1196,63 @@ class CppHeaderParser(SyntaxParser):
             errs.insert(0, (mn - 1, 'method: {}'.format(func_code)))
 
         return res, errs
+
+    def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line):
+        res = RetType.SUCCESS
+        errs = []
+
+        sx = enum_code.find('{')
+        ex = enum_code.rfind('}')
+        offset_lines = enum_code[:sx].count('\n')
+        enum_code = enum_code[sx + 1:ex]
+
+        # TODO
+        # 아래 코드는 \n을 기준으로 split 그런데 one line에 모든 코드가 존재하는 경우가 있음
+        #  -> 물론 이런 경우도 에러 처리 필요
+        #
+        # split은 주석을 제외한 코드를 가지고 ,로 해야함 (주석 내 , 가 있을 수 있음)
+        # A, B, C...로 나오면, A시작, B 시작 - 1을 A 구간으로 결정 (주석 포함) 하여 한개 item으로 결정
+        # line은 코드 blk에서 offset을 찾아 offset의 line을 구해야함
+
+        lines = enum_code.split('\n')
+        lines = [line.strip() for line in lines if line and line != '\n']
+
+        patterns = [re.compile("\/\*\*<[\w\s[=\]-_:;()'\"\/!@#$%,^~&*`+?]*\*\/"),
+            re.compile('\/\/\/<[\w\s[=\]-_:;()\'\"\/,!@#$%^~&*`+?]*')]
+
+        for i, line in enumerate(lines):
+            #print('line = ', line)
+            comment = None
+
+            for pattern in patterns:
+                m = pattern.search(line)
+                if not m:
+                    continue
+
+                sx = m.span()[0]
+                ex = m.span()[1]
+                comment = line[sx:ex + 1]
+                sx, ex = 0, 0
+                if comment.startswith('/**<'):
+                    sx = comment.find('/**<') + 4
+                    ex = comment.rfind('*/') - 1
+                else:
+                    sx = comment.find('///<') + 4
+                    ex = len(comment)
+
+                comment = comment[sx:ex + 1].strip()
+                #print('comment = ', comment)
+
+            if not comment:
+                errs += (offset_lines + enum_line + 1 + i, '\'' + line + '\'' + 'is not documented'),
+
+            # todo:
+            # 1. find  /**< 16 bits signed little endian */
+            # ///< BOOK_MARK 
+            # \/\*\*<[\w\s[=\]-_:;()'"\/!@#$%^~&*`+?]*\*\/
+
+        return res, errs
+
 
     def get_code(self, file):
         lines = []

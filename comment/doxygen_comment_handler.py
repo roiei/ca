@@ -57,6 +57,25 @@ class DoxygenVerificationHandler(Cmd):
                 clz_idxs, clz_codes = parsers[file_type].get_each_class_code(whole_code)
                 pos_line = parsers[file_type].get_line_pos(whole_code)
 
+
+                #
+                non_clz_code = parsers[file_type].get_non_class_code(whole_code)
+                enum_codes = parsers[file_type].get_enum_codes(non_clz_code, whole_code, pos_line)
+                comment_codes = parsers[file_type].get_doxy_comment_enum_chunks(non_clz_code)
+                commented_enum = set()
+                for line, comment_code, name in comment_codes:
+                    commented_enum.add(name)
+
+                for name, code, line in enum_codes:
+                    if name not in commented_enum:
+                        dir_errs[file][''] += (line, 'enum: {} is not documented'.format(name)),
+                
+                for name, code, line in enum_codes:
+                    res, errs = parsers[file_type].verify_doxycomment_enum(\
+                        code, line, whole_code, pos_line)
+                    dir_errs[file][''] += errs
+
+
                 for clz, code in clz_codes.items():
                     dir_errs[file][clz] = dir_errs[file][clz]
                     comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
@@ -102,38 +121,41 @@ class DoxygenVerificationHandler(Cmd):
 
             self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
             if num_err:
-                for file, clzs in err_stats[directory].items():
-                    if not dir_errs[file]:
-                        continue
-
-                    num_err_in_file = sum([len(errs) for clz, errs in dir_errs[file].items()])
-                    if not num_err_in_file:
-                        continue
-
-                    print('file: {}'.format(file))
-                    for clz, errs in dir_errs[file].items():
-                        if not errs:
-                            continue
-                        print('\tclass: ', clz)
-                        for line, err in errs:
-                            log_msg = err
-                            if -1 != line:
-                                log_msg = '\t' + '>> ' + log_msg + ' @ ' + str(line)
-
-                            if err.startswith('method:'):
-                                line += 1
-                            else:
-                                log_msg = '\t' + log_msg
-                                
-                            print('\t' + log_msg)
-                    print('\n')
+                self.print_detail_err_info(directory, err_stats, dir_errs)
 
         self.print_doxy_analysis_dir_stats(err_stats, 'each')
         self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
         if 'graph' in opts and opts['graph']:
             self.draw_bar_chart(err_stats, stat)
-            self.draw_err_pie_charts(err_stats, stat, 25)
+            self.draw_err_pie_charts(err_stats, stat)
         return True
+
+    def print_detail_err_info(self, directory, err_stats, dir_errs):
+        for file, clzs in err_stats[directory].items():
+            if not dir_errs[file]:
+                continue
+
+            num_err_in_file = sum([len(errs) for clz, errs in dir_errs[file].items()])
+            if not num_err_in_file:
+                continue
+
+            print('file: {}'.format(file))
+            for clz, errs in dir_errs[file].items():
+                if not errs:
+                    continue
+                print('\tclass: ', clz)
+                for line, err in errs:
+                    log_msg = err
+                    if -1 != line:
+                        log_msg = '\t' + '>> ' + log_msg + ' @ ' + str(line)
+
+                    if err.startswith('method:'):
+                        line += 1
+                    else:
+                        log_msg = '\t' + log_msg
+                        
+                    print('\t' + log_msg)
+            print('\n')
 
     def print_doxy_analysis_overall_stats(self, err_stats, stat, title=''):
         cols = ['# dirs', '# class', '# items', '# err', 'err %', \
@@ -146,6 +168,8 @@ class DoxygenVerificationHandler(Cmd):
         tot_num_err = sum([freq for dir, stat in err_stats.items() for file, clzs in stat.items() for clz, freq in clzs.items()])
         tot_num_dir = len(err_stats.keys())
         num_clzs    = sum(len(clzs.keys()) for dir, stat in err_stats.items() for file, clzs in stat.items())
+        if not stat.num_items:
+            return
 
         row = []
         row += ('{:<6d}', tot_num_dir),

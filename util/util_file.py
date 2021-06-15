@@ -20,6 +20,7 @@ class FileType(Enum):
     JSON = 5
     TEXT = 6
     PRO = 7
+    QML = 8
 
 
 class UtilFile:
@@ -68,6 +69,7 @@ class UtilFile:
         UtilFile.file_types['json'] = FileType.JSON
         UtilFile.file_types['txt'] = FileType.TEXT
         UtilFile.file_types['pro'] = FileType.PRO
+        UtilFile.file_types['qml'] = FileType.QML
 
     @staticmethod
     def get_file_type(extension):
@@ -224,8 +226,15 @@ class UtilFile:
     @staticmethod
     def get_content(url):
         lines = None
+        if os.path.isdir(url):
+            return None
+
         with open(url, 'r', encoding='utf8') as f:
-            lines = f.readlines()
+            try:
+                lines = f.readlines()
+            except UnicodeDecodeError as e:
+                print(e)
+                return None
 
         return ''.join(lines)
 

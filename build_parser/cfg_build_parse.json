@@ -1,0 +1,9 @@
+{
+    "output_candidate_pattern": {
+        "ic": "set\\([A-Z_]+\\s+[._${}\\w]+\\)"
+    },
+    "output_pattern": {
+        "ic": "",
+        "default": "project\\s*\\(\\s*[\\w]+\\s*\\)"
+    }
+}

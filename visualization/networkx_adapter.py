@@ -4,6 +4,7 @@ import np
 import sys, networkx as nx, matplotlib.pyplot as plt
 import collections
 from common.module_types import *
+import pprint
 
 
 class NetworkX:
@@ -23,41 +24,16 @@ class NetworkX:
         return rgb
 
     @staticmethod
-    def draw_layered_diagram(g, links, dep_cfg):
+    def draw_layered_diagram(g, links, edges, node_to_id, id_to_node, dep_cfg):
         filtered_g = collections.defaultdict(ModuleInfo)
         for k, v in g.items():
             if not ' ' in k and '\\' not in k and '/' not in k:
                 filtered_g[k] = v
 
         g = filtered_g
-        node_to_id = collections.defaultdict(str)
-        id_to_node = collections.defaultdict(int)
-        nodes = g.keys()
-
-        for id, node in enumerate(nodes):
-            id_to_node[id] = node
-            node_to_id[node] = id
-
-        cur_id = id + 1
-        not_in_nodes = []
-        for u, v in links:
-            if u not in node_to_id:
-                id_to_node[cur_id] = u
-                node_to_id[u] = cur_id
-                cur_id += 1
-
-            if v not in node_to_id:
-                id_to_node[cur_id] = v
-                node_to_id[v] = cur_id
-                cur_id += 1
-
-        edges = []
-        for link in links:
-            u, v = link
-            edges += (node_to_id[u], node_to_id[v]),
-
+        
         inbound = collections.defaultdict(int)
-        for u, v in edges:
+        for u, v, attr in edges:
             inbound[v] += 1
 
         node_sizes = []
@@ -81,12 +57,12 @@ class NetworkX:
         depth_nodes = collections.defaultdict(list)
         for id, node in id_to_node.items():
             if node in g:
+                #print('name = ', node, 'depth = ', g[node].depth)
                 depth_nodes[g[node].depth] += id,
 
         for depth, nodes in depth_nodes.items():
             ng.add_nodes_from(nodes, layer=depth)
 
-        ng.add_edges_from(edges)
         pos = nx.multipartite_layout(ng, subset_key="layer", scale=5)
 
         array_op = lambda x, weight: np.array([x[0]*weight, x[1]*weight])
@@ -95,13 +71,17 @@ class NetworkX:
         #print(pos)
         #plt.figure(figsize=(180, 180))
 
+        ng.add_edges_from(edges)  # color is not set here but at draw
+
+        edges_color2 = [attr['color'] for uid, vid, attr in ng.edges(data=True)]
+
         nx.draw(ng, pos, 
             node_size=node_sizes, 
             node_color=node_colors,
-            edge_color=dep_cfg.get_edge_color(),
+            edge_color=edges_color2,
             labels=id_to_node, 
             with_labels=False)
-
+        
         degrees = dict(ng.degree)
         mxd = max(degrees.values())
 

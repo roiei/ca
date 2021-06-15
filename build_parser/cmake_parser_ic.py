@@ -5,11 +5,12 @@ from util.util_file import *
 import re
 
 
-class CMakeBuildScriptParser:
+class CMakeBuildScriptParserIC:
     types = {
-        "APP_NAME": ("APP", 2),         # app module level
-        "LIB_NAME": ("LIB", 3),         # API module level
-        "SERVICE_NAME": ("SVC", 4)      # SVC module level
+        "app": ("APP", 2),         # app module level
+        "api": ("LIB", 3),         # API module level
+        "service": ("SVC", 4),     # SVC module level
+        "hal": ("HAL", 5) 
     }
 
     cfg = None
@@ -17,10 +18,10 @@ class CMakeBuildScriptParser:
 
     @staticmethod
     def init(prj):
-        CMakeBuildScriptParser.prj = prj
+        CMakeBuildScriptParserIC.prj = prj
         url = os.path.dirname(os.path.realpath(__file__)) + \
             PlatformInfo.get_delimiter() + 'cfg_build_parse.json'
-        CMakeBuildScriptParser.cfg = BuildScriptConfig(url)
+        CMakeBuildScriptParserIC.cfg = BuildScriptConfig(url)
 
     @staticmethod
     def _parse_module_type(name):
@@ -36,7 +37,7 @@ class CMakeBuildScriptParser:
 
     @staticmethod
     def _find_output_name(url, name, content):
-        str_out_pat = CMakeBuildScriptParser.cfg.get_output_pattern(CMakeBuildScriptParser.prj)
+        str_out_pat = CMakeBuildScriptParserIC.cfg.get_output_pattern(CMakeBuildScriptParserIC.prj)
         output_name = ''
         if name.endswith('_NAME}'):
             pattern = re.compile(str_out_pat)
@@ -54,13 +55,13 @@ class CMakeBuildScriptParser:
     @staticmethod
     def _get_module_info(type_str, name):
         #print('type = ', type_str, 'name = ', name)
-        value = CMakeBuildScriptParser.types.get(type_str, ('NONE', -1))
+        value = CMakeBuildScriptParserIC.types.get(type_str, ('NONE', -1))
         type, depth = value
         if type == 'NONE':
             return '', 0
 
         sub_type, sub_depth = \
-            CMakeBuildScriptParser._parse_module_type(name)
+            CMakeBuildScriptParserIC._parse_module_type(name)
 
         if sub_type:
             type += ':' + sub_type
@@ -77,47 +78,54 @@ class CMakeBuildScriptParser:
         ex = line.rfind(')')
         if sx != -1 and sx < ex:
             line = line[sx + 1: ex]
-        words = line.split()
-        try:
-            type_str, name = words
-        except ValueError:
-            print(url)
-            print(line)
-            print(words)
-            sys.exit()
+        #print(line)
 
-        type_str = type_str.strip()
-        name = name.strip()
-
+        name = line.lower()
         if name in g:
             print('name {} already exist'.format(name))
-            return
+            return None, None
 
-        type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
-        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
+        words = url.split(PlatformInfo.get_delimiter())
+        type = None
+        depth = -1
+        for word in words:
+            if word in CMakeBuildScriptParserIC.types:
+                type, depth = CMakeBuildScriptParserIC.types[word]
+
         if not type:
             #print('name {}: cannot find type {}'.format(name, type_str))
-            return
+            return None, None
 
-        res_name = name
-        if name.startswith('$'):
-            res_name = CMakeBuildScriptParser._find_output_name(url, name, content)
-
-        if not res_name:
-            print('cmake:ERROR: could not find name = {}'.format(name), url)
-            return
-
-        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
+        name = self._replace_define_to_actual_name(name, line, content)
 
         g[name] = ModuleInfo()
-        g[name].name = res_name
+        g[name].name = name
         g[name].type = type
         g[name].depth = depth
         g[name].url = url
-        return res_name
+        return name, line
+    
+    def _replace_define_to_actual_name(self, name, def_name, content):
+        pattern = re.compile('set\s*\(\s*{}\s+[\w]+\s*\)'.format(def_name))
+        m = pattern.finditer(content)
+        target_name = ''
+
+        for r in m:
+            span = r.span()
+            line = content[span[0]:span[1]]
+            sx = line.find('(')
+            ex = line.rfind(')')
+            words = line[sx + 1:ex].split()
+            target_name = words[-1]
+            break
+
+        if target_name:
+            name = target_name.lower()
+
+        return name
 
     @staticmethod
-    def _parse_dependency(line, g, param, url):
+    def _parse_dependency(line, g, oname, ori_oname, url):
         sx = line.find('(')
         ex = line.rfind(')')
         content = line[sx + 1:ex].split()
@@ -138,6 +146,13 @@ class CMakeBuildScriptParser:
 
             item = item.strip()
 
+            if item == ori_oname:
+                continue
+
+            if item.endswith('_LIB_NAME'):
+                ex = item.rfind('_LIB_NAME')
+                item = item[:ex].lower()
+
             filtered += item,
             if 'LDFLAGS' in item:
                 ex = item.rfind('_LDFLAGS')
@@ -146,14 +161,17 @@ class CMakeBuildScriptParser:
             if '' == item or not item:
                 print('1. empty string')
 
-            g[param].fan_outs.add(item)
+            g[oname].fan_outs.add(item)
 
         #print(filtered)
-        #print(param, ' = ', g[param].fan_outs)
+        #print(oname, ' = ', g[oname].fan_outs)
 
     pattern_handlers = {
         'dependency':
-            ('target_link_libraries\s*\([\w$\s{}+]*\)',
+            ('target_link_libraries\s*\(\n*[\w\s$\-\.#\/_s{}\n+]*\s*\n*\)',
+            _parse_dependency.__func__),
+        'dependency_uppercase':
+            ('TARGET_LINK_LIBRARIES\s*\(\n*[\w\s$\-\.#\/_s{}\n+]*\s*\n*\)',
             _parse_dependency.__func__)
     }
 
@@ -164,18 +182,26 @@ class CMakeBuildScriptParser:
         """
             add output module to the given graph
         """
-        pattern = re.compile('set\([A-Z_]+\s+[._${}\w]+\)')
-        m = pattern.finditer(content)
-        for r in m:
-            span = r.span()
-            #print(content[span[0]:span[1]])
-            res = self._parse_outputname(
-                content[span[0]:span[1]], g, url, content)
 
+        patts = ['project\s*\(\s*[\w]+\s*\)', 'PROJECT\s*\(\s*[\w]+\s*\)']
+        res = ''
+        oname = ''
+
+        for patt in patts:
+            pattern = re.compile(patt)
+            m = pattern.finditer(content)
+            for r in m:
+                span = r.span()
+                res, oname = self._parse_outputname(
+                    content[span[0]:span[1]], g, url, content)
+
+                if '' != res and None != res:
+                    break
+            
             if '' != res and None != res:
-                return res
-
-        return ''
+                break
+        
+        return res, oname
 
     def build_dep_graph(self, url):
         content = UtilFile.get_content(url)
@@ -183,28 +209,34 @@ class CMakeBuildScriptParser:
             return
 
         g = collections.defaultdict(ModuleInfo)
-        oname = self.add_output_module(g, content, url)
-
-        #print('cmake = ', oname)
+        oname, ori_oname = self.add_output_module(g, content, url)
 
         if '' == oname:
             #print('UNDEF: url = ', url)
             return
-
-        for pname, value in CMakeBuildScriptParser.pattern_handlers.items():
+        
+        for pname, value in CMakeBuildScriptParserIC.pattern_handlers.items():
             pattern_str, _handler = value
             pattern = re.compile(pattern_str)
 
             m = pattern.finditer(content)
             for r in m:
                 span = r.span()
-                name = _handler(content[span[0]:span[1]], g, oname, url)
-        
+                name = _handler(content[span[0]:span[1]], g, oname, ori_oname, url)
+
         return g
     
     def replace_macro_dep(self, g, module_infos):
+        #print("+replace")
         for u, info in g.items():
             if 'CCOSAPI_LIBRARIES' in info.fan_outs:
+                #print(u, end='\n')
                 info.fan_outs.remove('CCOSAPI_LIBRARIES')
                 for module in module_infos['LIB']:
                     info.fan_outs.add(module)
+
+
+    
+    
+
+

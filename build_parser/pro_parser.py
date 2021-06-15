@@ -9,7 +9,7 @@ class ProBuildScriptParser:
         pass
 
     @staticmethod
-    def _add_dependency(line, g, param, url):
+    def _add_dependency_libs(line, g, param, url):
         line = line.strip()
         if line.startswith('#'):
             return
@@ -37,24 +37,64 @@ class ProBuildScriptParser:
         # sys.exit()
         for item in items:
             g[param].fan_outs.add(item)
+    
+    @staticmethod
+    def _add_dependency_pkgs(line, g, param, url):
+        line = line.strip()
+        line = line.split('+=')[-1].strip()
+        items = [item.strip() for item in line.split()]
+
+        nitems = []
+        for item in items:
+            if item.startswith('-L'):
+                continue
+
+            i = 0
+            while i < len(item):
+                if not item[i].isalpha():
+                    break
+                i += 1
+            nitems += item[:i],
+
+        items = nitems
+
+        for item in items:
+            g[param].fan_outs.add(item)
 
     pattern_handlers = {
         'dependency':
             ('LIBS\s*\+=[][$/}{\w\s-]*\n',
-            _add_dependency.__func__)
+            _add_dependency_libs.__func__),
+        'pkg_dependency': 
+            ('PKGCONFIG\s*\+=[][$/}{\w\s-]*\n', 
+            _add_dependency_pkgs.__func__)
     }
 
-    def build_dep_graph(self, url):
+    def remove_comment(self, content):
+        content = re.compile("#.*").sub("", content)
+        return content
+
+    def build_dep_graph(self, url, dep_cfg, prj):
+        prefix = dep_cfg.get_prefix()['app'][prj]
+        if prefix not in url:
+            return None
+
         content = UtilFile.get_content(url)
         if not content:
             return
-
+        
+        content = self.remove_comment(content)
         g = collections.defaultdict(ModuleInfo)
 
         oname = self.add_output_module(g, content, url)
+
+        #print('url = ', url, 'oname = ', oname)
+
         if '' == oname:
             #print('UNDEF: url = ', url)
             return
+        
+        #print('pro = ', oname)
 
         for pname, value in ProBuildScriptParser.pattern_handlers.items():
             pattern_str, _handler = value
@@ -96,6 +136,7 @@ class ProBuildScriptParser:
         g[name].name = name
         g[name].type = type
         g[name].depth = depth
+        g[name].url = url
 
         #print('type = {}, name = {}'.format(type, name))
         return name
@@ -131,7 +172,7 @@ class ProBuildScriptParser:
 
     types = {
         "app": ("HMI_APP", 0),      # HMI app component level
-        "lib": ("HMI_LIB", 1)        # UI library module level
+        "lib": ("HMI_LIB", 1)       # UI library module level
     }
 
     def get_module_info(self, type_str, name, url):
@@ -150,6 +191,10 @@ class ProBuildScriptParser:
         words = line.split('=')
         words = [word.strip() for word in words]
         #print('words = ', words)
+
+        #if 'hcloud' == words[-1]:
+            #print(url)
+            #sys.exit()
 
         try:
             _, name = words

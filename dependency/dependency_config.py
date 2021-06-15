@@ -45,6 +45,18 @@ class DependencyConfig:
 
     def get_activated_edges(self):
         return self.cfg['activated_edges']
+    
+    def set_prefix(self, value):
+        self.cfg['prefix'] = value
+
+    def get_prefix(self):
+        return self.cfg['prefix']
+    
+    def set_base_apis(self, value):
+        self.cfg['base_apis'] = value
+
+    def get_base_apis(self):
+        return self.cfg['base_apis']
 
 
 class DependencyConfigReader:
@@ -84,5 +96,11 @@ class DependencyConfigReader:
 
         if 'activated_edges' in cfg_json:
             cfg.set_activated_edges(cfg_json["activated_edges"])
+        
+        if 'prefix' in cfg_json:
+            cfg.set_prefix(cfg_json["prefix"])
+        
+        if 'base_apis' in cfg_json:
+            cfg.set_base_apis(cfg_json["base_apis"])
 
         return cfg
