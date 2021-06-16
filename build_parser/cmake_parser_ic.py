@@ -160,7 +160,7 @@ class CMakeBuildScriptParserIC:
 
             if '' == item or not item:
                 print('1. empty string')
-
+     
             g[oname].fan_outs.add(item)
 
         #print(filtered)

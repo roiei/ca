@@ -1,4 +1,4 @@
-
+import matplotlib
 from cmd_interface import *
 from util.util_file import *
 import copy
@@ -10,6 +10,7 @@ from build_parser.cmake_parser_ic import *
 from build_parser.pro_parser import *
 from common.module_types import *
 from dependency.dependency_config import *
+from util.util_print import *
 
 
 class BuildScriptParser:
@@ -42,6 +43,14 @@ class DependencyAnalysisHandler(Cmd):
             'LIB': 3,
             'SVC': 4,
             'HAL': 5
+        }
+
+        self.allowed_dep = {
+            'HMI_APP': {'HMI_APP', 'HMI_LIB', 'APP', 'LIB', 'ETC'},
+            'HMI_LIB': {'APP', 'LIB', 'ETC'},
+            'APP': {'APP', 'LIB', 'ETC'},
+            'LIB': {'SVC', 'ETC'},
+            'SVC': {'SVC', 'HAL', 'ETC'}
         }
 
     def __del__(self):
@@ -142,93 +151,87 @@ class DependencyAnalysisHandler(Cmd):
         # self.traverse_graph(graph)
         # print()
         # self.dump(graph)
-        #sys.exit()
+        # sys.exit()
+
         module_infos = {
             'LIB': self.get_api_module_names(graph)
         }
 
         self.file_handlers['CMakeLists.txt'][prj].replace_macro_dep(graph, module_infos)
+        links = self.get_links(graph)
+        color_edges, node_to_id, id_to_node, violations = \
+            self.create_edges(graph, links)
+        
+        self.print_dependency_violation(violations, graph, 'dependency violation')
+        self.print_instability(graph, 'instability')
+        self.print_instable_dep(graph, 'instable dependency')
+
+
+        # plt.rc('font', **{'size':5})
+        # plt.figure(figsize=(10, 4))
+        # plt.plot([graph[k].instability for k in graph])
+        # plt.xticks(range(len(graph)), [k for k in graph], rotation=90)
+        # plt.show()
+
+        print(graph['hcollection'].fan_outs)
+
 
         if 'graph' in opts and opts['graph'] == 'True':
-            links = self.get_links(graph)
-
-            node_to_id = collections.defaultdict(str)
-            id_to_node = collections.defaultdict(int)
-
-            nodes = graph.keys()
-            for id, node in enumerate(nodes):
-                id_to_node[id] = node
-                node_to_id[node] = id
-
-            cur_id = id + 1
-            not_in_nodes = []
-            for u, v in links:  # {(name1, name2), ...}
-                if u not in node_to_id:
-                    id_to_node[cur_id] = u
-                    node_to_id[u] = cur_id
-                    cur_id += 1
-
-                if v not in node_to_id:
-                    id_to_node[cur_id] = v
-                    node_to_id[v] = cur_id
-                    cur_id += 1
-
-            edges = []
-            for u, v in links:
-                edges += (node_to_id[u], node_to_id[v]),
-            
-            base_apis = set(self.dep_cfg.get_base_apis())
-            def_edge_color = self.dep_cfg.get_edge_color()
-            def_weight = 1
-            color_edges = []
-            cnt = 0
-            tot = 0
-            for uid, vid in edges:
-                u = id_to_node[uid]
-                v = id_to_node[vid]
-                color = def_edge_color
-                weight = def_weight
-                
-                allowed_dep = {
-                    'HMI_APP': {'HMI_APP', 'HMI_LIB', 'APP', 'LIB', 'ETC'},
-                    'HMI_LIB': {'APP', 'LIB', 'ETC'},
-                    'APP': {'APP', 'LIB', 'ETC'},
-                    'LIB': {'SVC', 'ETC'},
-                    'SVC': {'SVC', 'HAL', 'ETC'}
-                }
-
-                if graph[v].type not in allowed_dep[graph[u].type]:
-                    if (graph[u].type in {'LIB', 'SVC', 'HAL'}) and graph[v].type == 'LIB':
-                        if v not in base_apis:
-                            print('violate')
-                            print(u, ' -> ', v)
-                            print()
-                            #sys.exit()
-                            color = 'red'
-                            cnt += 1
-                    else:
-                        print('violate')
-                        print(u, ' -> ', v)
-                        #sys.exit()
-                        color = 'red'
-                
-                tot += 1
-                color_edges += (uid, vid, {'color': color}),
-                #ng.add_edge(uid, vid, color=color)
-            
-            # G[2][3]['color']='blue'
-            print('num violate = ', cnt, tot)
-            """
-            for node, info in graph.items():
-                print(node)
-                print(info.name)
-                print(info.type)
-                print(info.depth)
-                print()
-            """
-                
             NetworkX.draw_layered_diagram(graph, links, color_edges, node_to_id, id_to_node, self.dep_cfg)
+
         return True
+    
+    def create_edges(self, graph, links):
+        node_to_id = collections.defaultdict(str)
+        id_to_node = collections.defaultdict(int)
+        violations = []
+
+        nodes = graph.keys()
+        for id, node in enumerate(nodes):
+            id_to_node[id] = node
+            node_to_id[node] = id
+
+        cur_id = id + 1
+        not_in_nodes = []
+        for u, v in links:  # {(name1, name2), ...}
+            if u not in node_to_id:
+                id_to_node[cur_id] = u
+                node_to_id[u] = cur_id
+                cur_id += 1
+
+            if v not in node_to_id:
+                id_to_node[cur_id] = v
+                node_to_id[v] = cur_id
+                cur_id += 1
+
+        edges = []
+        for u, v in links:
+            edges += (node_to_id[u], node_to_id[v]),
+        
+        base_apis = set(self.dep_cfg.get_base_apis())
+        def_edge_color = self.dep_cfg.get_edge_color()
+        def_weight = 1
+        color_edges = []
+        cnt = 0
+        tot = 0
+        for uid, vid in edges:
+            u = id_to_node[uid]
+            v = id_to_node[vid]
+            color = def_edge_color
+            weight = def_weight
+
+            if graph[v].type not in self.allowed_dep[graph[u].type]:
+                if not ((graph[u].type in {'LIB', 'SVC', 'HAL'} and graph[v].type == 'LIB') \
+                    and v in base_apis):
+                    color = 'red'
+                    cnt += 1
+                    violations += (u, v),
+            
+            tot += 1
+            color_edges += (uid, vid, {'color': color}),
+        
+        print(' * number of violations = {} / {} ({:.2f}%)'.format(cnt, tot, cnt/tot*100))
+        return color_edges, node_to_id, id_to_node, violations
     
     def get_api_module_names(self, g):
         modules = []
@@ -243,8 +246,6 @@ class DependencyAnalysisHandler(Cmd):
             if info.type == 'HMI_LIB':
                 hmi_libs.add(u)
         
-        #print(hmi_libs)
-    
         for u, info in graph.items():
             if info.type != 'HMI_APP':
                 continue
@@ -255,8 +256,6 @@ class DependencyAnalysisHandler(Cmd):
             qml_files = UtilFile.get_dirs_files_with_filter(path, \
                 cfg.get_recursive(), ['qml'], [])
             
-            #print(qml_files)
-
             if not qml_files:
                 print('no qml ', path)
                 continue
@@ -376,3 +375,81 @@ class DependencyAnalysisHandler(Cmd):
                 edges.add((u, v))
 
         return edges
+    
+    def print_dependency_violation(self, items, graph, title=''):
+        cols = ['from name', 'from type', 'from level', 'to name', 'to type', 'to level']
+        rows = []
+        col_widths = [10, 9, 10, 10, 9, 8]
+
+        for u, v in items:
+            row = []
+            row += ('{:<10s}', u),
+            row += ('{:<9s}', graph[u].type),
+            row += ('{:<10d}', graph[u].depth),
+            row += ('{:<10s}', v),
+            row += ('{:<9s}', graph[v].type),
+            row += ('{:<8d}', graph[v].depth),
+            rows += row,
+
+        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
+            col_widths, cols, rows)
+    
+    def print_instability(self, graph, title=''):
+        cols = ['name', 'in #', 'out #', 'I']
+        rows = []
+        col_widths = [12, 5, 5, 5]
+
+        for name, info in graph.items():
+            if info.type not in self.allowed_dep:
+                # print(name + 'is not allowed type')
+                continue
+
+            row = []
+            row += ('{:<12s}', name),
+            row += ('{:<5d}', len(graph[name].fan_ins)),
+            row += ('{:<5d}', len(graph[name].fan_outs)),
+            row += ('{:.3f}', graph[name].instability),
+            rows += row,
+        
+        rows.sort(key=lambda p: p[3], reverse=True)
+        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
+            col_widths, cols, rows)
+    
+    def print_instable_dep(self, graph, title=''):
+        cols = ['name', 'I', 'instable dependency (stable -> instable)']
+        rows = []
+        col_widths = [12, 5, 70]
+
+        for name, info in graph.items():
+            if info.instability > 0.3 or not info.fan_outs:
+                continue
+
+            instable_dep = []
+            for v in info.fan_outs:
+                if graph[v].instability > 0.3:
+                    instable_dep += (v, graph[v].instability),
+            
+            if not instable_dep:
+                continue
+            
+            row = []
+            row += ('{:<12s}', name),
+            row += ('{:<.3f}', info.instability),
+
+            deps = ''
+            for i, value in enumerate(instable_dep):
+                name, ins_rate = value
+                deps += '({}, {:.2f})'.format(name, ins_rate)
+                if i < len(instable_dep) - 1:
+                    deps += ', '
+
+            row += ('{:<70s}', deps),
+            rows += row,
+    
+        UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
+            col_widths, cols, rows)
+            
+
+
+
+
