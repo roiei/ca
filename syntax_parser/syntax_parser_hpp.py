@@ -1168,7 +1168,7 @@ class CppHeaderParser(SyntaxParser):
             return_code = None
 
         for code_param in code_params:
-            if code_param not in doxy_params:
+            if code_param not in doxy_params and code_param != 'void':
                 errs += (err_line, '\'' + code_param + '\' is not documented'),
                 res = RetType.ERROR
 
