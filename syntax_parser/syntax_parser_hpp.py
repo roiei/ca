@@ -1233,21 +1233,12 @@ class CppHeaderParser(SyntaxParser):
         return lines
 
     def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line, cfg):
-        res = RetType.SUCCESS
         errs = []
 
         sx = enum_code.find('{')
         ex = enum_code.rfind('}')
         offset_lines = enum_code[:sx].count('\n')
         enum_code = enum_code[sx + 1:ex]
-
-        # TODO
-        # 아래 코드는 \n을 기준으로 split 그런데 one line에 모든 코드가 존재하는 경우가 있음
-        #  -> 물론 이런 경우도 에러 처리 필요
-        #
-        # split은 주석을 제외한 코드를 가지고 ,로 해야함 (주석 내 , 가 있을 수 있음)
-        # A, B, C...로 나오면, A시작, B 시작 - 1을 A 구간으로 결정 (주석 포함) 하여 한개 item으로 결정
-        # line은 코드 blk에서 offset을 찾아 offset의 line을 구해야함
 
         guard_keywords = set(cfg.get_enum_guard_keywords())
         lines = self.__doxygen_split_lines(enum_code)
@@ -1302,7 +1293,7 @@ class CppHeaderParser(SyntaxParser):
             # ///< BOOK_MARK 
             # \/\*\*<[\w\s[=\]-_:;()'"\/!@#$%^~&*`+?]*\*\/
 
-        return res, errs
+        return len(lines), errs
 
 
     def get_code(self, file):

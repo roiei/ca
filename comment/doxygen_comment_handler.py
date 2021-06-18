@@ -21,7 +21,10 @@ class DoxygenErrorStats:
 
 class DoxygenVerificationHandler(Cmd):
     def __init__(self):
-        pass
+        self.rules = {
+            'enum': self.__check_enum,
+            'method': self.__check_method
+        }
 
     def __del__(self):
         pass
@@ -54,76 +57,11 @@ class DoxygenVerificationHandler(Cmd):
                 if not whole_code:
                     continue
 
-                clz_idxs, clz_codes = parsers[file_type].get_each_class_code(whole_code)
                 pos_line = parsers[file_type].get_line_pos(whole_code)
 
-
-                #
-                non_clz_code = parsers[file_type].get_non_class_code(whole_code)
-                enum_codes = parsers[file_type].get_enum_codes(non_clz_code, whole_code, pos_line)
-
-                comment_codes = parsers[file_type].get_doxy_comment_enum_chunks(non_clz_code)
-                commented_enum = set()
-                for line, comment_code, name in comment_codes:
-                    commented_enum.add(name)
-                
-                for name, code, line in enum_codes:
-                    if name not in commented_enum:
-                        dir_errs[file][''] += (line, 'enum: {} is not documented'.format(name)),
-                        err_stats[directory][file][''] += 1
-                
-                for name, code, line in enum_codes:
-                    res, errs = parsers[file_type].verify_doxycomment_enum(\
-                        code, line, whole_code, pos_line, cfg)
-                    dir_errs[file][''] += errs
-                    err_stats[directory][file][''] += len(errs)
-
-
-                for clz, code in clz_codes.items():
-                    dir_errs[file][clz] = dir_errs[file][clz]
-                    comment_codes = parsers[file_type].get_doxy_comment_method_chunks(code, clz)
-                    all_methods = set(parsers[file_type].get_methods_in_class(clz, code, whole_code, pos_line))
-
-                    commented_methods = set()
-                    for line, comment_code, method_name in comment_codes:
-                        commented_methods.add(parsers[file_type].remove_comment_in_method(comment_code))
-                    
-                    # print('commented methods')
-                    # print(commented_methods)
-                    # print('all_method')
-                    # for m in all_methods:
-                    #     print(m)
-
-                    num_no_commented = 0
-                    for method, method_code, line, num_sig in all_methods:
-                        stat.num_items += num_sig
-                        if method_code not in commented_methods:
-                            dir_errs[file][clz] += (line, 'method: {} is not documented'.format(method)),
-                            num_no_commented += 1
-
-                    stat.tot_method += len(all_methods)
-                    stat.err_method += num_no_commented
-                    stat.num_errs += num_no_commented
-                    err_stats[directory][file][clz] += num_no_commented
-
-                    if not comment_codes:
-                        continue
-
-                    for line, comment_code, method_name in comment_codes:
-                        res, errs = parsers[file_type].verify_doxycoment_methods(\
-                            comment_code, whole_code, clz, pos_line,
-                            cfg.is_duplicate_param_permitted())
-
-                        errs.sort(key=lambda p: p[0])
-
-                        if res is not RetType.SUCCESS and res is not RetType.WARN:
-                            dir_errs[file][clz] += errs
-
-                        if errs:                            
-                            err_stats[directory][file][clz] += \
-                                max(len(errs) - 1, 0)
-                            stat.err_method += 1
-                            stat.num_errs += max(len(errs) - 1, 0)
+                for rule_name, rule_func in self.rules.items():
+                    rule_func(parsers[file_type], directory, file, whole_code, \
+                        pos_line, dir_errs, stat, err_stats, cfg)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
                 for clz, freq in clzs.items())
@@ -138,6 +76,84 @@ class DoxygenVerificationHandler(Cmd):
             self.draw_bar_chart(err_stats, stat)
             self.draw_err_pie_charts(err_stats, stat)
         return True
+    
+    def __check_enum(self, parser, directory, file, whole_code, pos_line, dir_errs, \
+            stat, err_stats, cfg):
+        non_clz_code = parser.get_non_class_code(whole_code)
+        enum_codes = parser.get_enum_codes(non_clz_code, whole_code, pos_line)
+
+        comment_codes = parser.get_doxy_comment_enum_chunks(non_clz_code)
+        commented_enum = set()
+        for line, comment_code, name in comment_codes:
+            commented_enum.add(name)
+        
+        num_not_doc = 0
+        for name, code, line in enum_codes:
+            if name not in commented_enum:
+                dir_errs[file][''] += (line, 'enum: {} is not documented'.format(name)),
+                err_stats[directory][file][''] += 1
+                num_not_doc += 1
+            stat.num_items += 1
+
+        stat.num_errs += num_not_doc
+        
+        for name, code, line in enum_codes:
+            num_lines, errs = parser.verify_doxycomment_enum(\
+                code, line, whole_code, pos_line, cfg)
+            dir_errs[file][''] += errs
+            err_stats[directory][file][''] += len(errs)
+            stat.num_items += num_lines
+            stat.num_errs += len(errs)
+    
+    def __check_method(self, parser, directory, file, whole_code, pos_line, dir_errs, \
+            stat, err_stats, cfg):
+        clz_idxs, clz_codes = parser.get_each_class_code(whole_code)
+
+        for clz, code in clz_codes.items():
+            dir_errs[file][clz] = dir_errs[file][clz]
+            comment_codes = parser.get_doxy_comment_method_chunks(code, clz)
+            all_methods = set(parser.get_methods_in_class(clz, code, whole_code, pos_line))
+
+            commented_methods = set()
+            for line, comment_code, method_name in comment_codes:
+                commented_methods.add(parser.remove_comment_in_method(comment_code))
+            
+            # print('commented methods')
+            # print(commented_methods)
+            # print('all_method')
+            # for m in all_methods:
+            #     print(m)
+
+            num_no_commented = 0
+            for method, method_code, line, num_sig in all_methods:
+                stat.num_items += num_sig
+                if method_code not in commented_methods:
+                    dir_errs[file][clz] += (line, 'method: {} is not documented'.format(method)),
+                    num_no_commented += 1
+
+            stat.tot_method += len(all_methods)
+            stat.err_method += num_no_commented
+            stat.num_errs += num_no_commented
+            err_stats[directory][file][clz] += num_no_commented
+
+            if not comment_codes:
+                continue
+
+            for line, comment_code, method_name in comment_codes:
+                res, errs = parser.verify_doxycoment_methods(\
+                    comment_code, whole_code, clz, pos_line,
+                    cfg.is_duplicate_param_permitted())
+
+                errs.sort(key=lambda p: p[0])
+
+                if res is not RetType.SUCCESS and res is not RetType.WARN:
+                    dir_errs[file][clz] += errs
+
+                if errs:                            
+                    err_stats[directory][file][clz] += \
+                        max(len(errs) - 1, 0)
+                    stat.err_method += 1
+                    stat.num_errs += max(len(errs) - 1, 0)
 
     def print_detail_err_info(self, directory, err_stats, dir_errs):
         for file, clzs in err_stats[directory].items():
