@@ -891,6 +891,7 @@ class CppHeaderParser(SyntaxParser):
         return method_name
 
     def get_enum_name(self, chunk):
+        chunk = self.remove_comment(chunk)
         pattern = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*')
         m = pattern.search(chunk)
         enum_name = ''
@@ -901,9 +902,9 @@ class CppHeaderParser(SyntaxParser):
             enum_name = enum_name.split()
             while enum_name and enum_name[0] in {'enum', 'class'}:
                 enum_name.pop(0)
-
+    
             enum_name = ''.join(enum_name)
-
+        
         return enum_name
 
     def set_suffix_filter(self, suffixes):
@@ -915,11 +916,15 @@ class CppHeaderParser(SyntaxParser):
 
     def get_code_without_comment(self, url):
         return CppParser.get_code_only(url)
-
+    
     def remove_comment(self, code):
         code = re.compile("(?s)/\*.*?\*/").sub("", code)
         code = re.compile("//.*").sub("", code)
         code.strip()
+        return code
+    
+    def remove_comment_in_method(self, code):
+        code = self.remove_comment(code)
 
         pname, pattern = SearchPatternCpp.get_pattern_methods()
         if not pattern:
@@ -1032,7 +1037,6 @@ class CppHeaderParser(SyntaxParser):
             regarding doxy comment
                 /** ~~ */
         """
-        comment_pattern = re.compile('(?s)\/\*.*?\*\/')
         res = []
         n = len(code)
 
@@ -1048,7 +1052,7 @@ class CppHeaderParser(SyntaxParser):
 
         pos_line += (i, line),
 
-        m = re.finditer(comment_pattern, code)
+        m = re.finditer(re.compile('(?s)\/\*.*?\*\/'), code)
         m = list(m)
 
         doxy_cmt_pattern = '@\s*brief'
@@ -1062,7 +1066,7 @@ class CppHeaderParser(SyntaxParser):
                 continue
 
             method_m += item,
-
+        
         pos = 0
         num_pos = len(pos_line)
 
@@ -1180,13 +1184,19 @@ class CppHeaderParser(SyntaxParser):
             elif not is_dup_permitted:
                 code_params.pop(code_params.index(doxy_param_name))
 
-        #print(return_code)
+        #print('return code = ', return_code)
 
-        if (return_code and 'void' not in return_code) and not doxy_returns:
+        if return_code:
+            return_code = return_code.split()
+            while return_code and return_code[0] in {'virtual'}:
+                return_code.pop(0)
+            return_code = ''.join(return_code)
+
+        if (return_code and return_code not in {'void', 'template'}) and not doxy_returns:
             errs += (err_line, 'return \"{}\" is not documented'.format(return_code)),
             res = RetType.ERROR
 
-        if (return_code and 'void' not in return_code) and not doxy_returns:
+        if (return_code and return_code not in {'void', 'template'}) and not doxy_returns:
             errs += (err_line, 'return \"{}\" does not exist in the code'.\
                 format(return_code)),
             res = RetType.ERROR
@@ -1196,8 +1206,33 @@ class CppHeaderParser(SyntaxParser):
             errs.insert(0, (mn - 1, 'method: {}'.format(func_code)))
 
         return res, errs
+    
+    def __doxygen_split_lines(self, enum_value_lines):
+        items = enum_value_lines.split('\n')
+        items = [item.strip() for item in items]
+        lines = []
 
-    def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line):
+        i = 0
+        while i < len(items):
+            line = ''
+            if -1 == items[i].find('/**<'):
+                lines += items[i],
+                i += 1
+                continue
+
+            while i < len(items) and -1 == items[i].rfind('*/'):
+                line += items[i]
+                i += 1
+            
+            if i < len(items):
+                line += items[i]
+
+            lines += line,
+            i += 1
+        
+        return lines
+
+    def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line, cfg):
         res = RetType.SUCCESS
         errs = []
 
@@ -1214,15 +1249,30 @@ class CppHeaderParser(SyntaxParser):
         # A, B, C...로 나오면, A시작, B 시작 - 1을 A 구간으로 결정 (주석 포함) 하여 한개 item으로 결정
         # line은 코드 blk에서 offset을 찾아 offset의 line을 구해야함
 
-        lines = enum_code.split('\n')
-        lines = [line.strip() for line in lines if line and line != '\n']
+        guard_keywords = set(cfg.get_enum_guard_keywords())
+        lines = self.__doxygen_split_lines(enum_code)
 
-        patterns = [re.compile("\/\*\*<[\w\s[=\]-_:;()'\"\/!@#$%,^~&*`+?]*\*\/"),
-            re.compile('\/\/\/<[\w\s[=\]-_:;()\'\"\/,!@#$%^~&*`+?]*')]
+        patterns = [
+            re.compile("\/\*\*<[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/"),
+            re.compile('\/\/\/<[\w\s\.[=\]\-_:;()\'\"\/,\>\<!@#$%^~&*`+?]*')     # used in single line (so removed \n)
+        ] 
 
         for i, line in enumerate(lines):
             #print('line = ', line)
+            if not line:
+                continue
+
+            wo_comment = self.remove_comment(line)
+            wo_comment = list(filter(lambda p: p.strip() != '', wo_comment.split(',')))
+            if len(wo_comment) > 1:
+                errs += (offset_lines + enum_line + 1 + i, '\'' + line + '\'' + \
+                    ': values are defiend in one line'),
+                continue
+
             comment = None
+            ex = line.find(',')
+            enum_val = line[:] if -1 == ex else line[:ex]
+            enum_val = self.remove_comment(enum_val)
 
             for pattern in patterns:
                 m = pattern.search(line)
@@ -1243,8 +1293,9 @@ class CppHeaderParser(SyntaxParser):
                 comment = comment[sx:ex + 1].strip()
                 #print('comment = ', comment)
 
-            if not comment:
-                errs += (offset_lines + enum_line + 1 + i, '\'' + line + '\'' + 'is not documented'),
+            if (not comment and enum_val) and enum_val not in guard_keywords:
+                errs += (offset_lines + enum_line + i, '\'' + line + '\'' + \
+                    'is not documented'),
 
             # todo:
             # 1. find  /**< 16 bits signed little endian */

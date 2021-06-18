@@ -61,19 +61,22 @@ class DoxygenVerificationHandler(Cmd):
                 #
                 non_clz_code = parsers[file_type].get_non_class_code(whole_code)
                 enum_codes = parsers[file_type].get_enum_codes(non_clz_code, whole_code, pos_line)
+
                 comment_codes = parsers[file_type].get_doxy_comment_enum_chunks(non_clz_code)
                 commented_enum = set()
                 for line, comment_code, name in comment_codes:
                     commented_enum.add(name)
-
+                
                 for name, code, line in enum_codes:
                     if name not in commented_enum:
                         dir_errs[file][''] += (line, 'enum: {} is not documented'.format(name)),
+                        err_stats[directory][file][''] += 1
                 
                 for name, code, line in enum_codes:
                     res, errs = parsers[file_type].verify_doxycomment_enum(\
-                        code, line, whole_code, pos_line)
+                        code, line, whole_code, pos_line, cfg)
                     dir_errs[file][''] += errs
+                    err_stats[directory][file][''] += len(errs)
 
 
                 for clz, code in clz_codes.items():
@@ -83,7 +86,13 @@ class DoxygenVerificationHandler(Cmd):
 
                     commented_methods = set()
                     for line, comment_code, method_name in comment_codes:
-                        commented_methods.add(parsers[file_type].remove_comment(comment_code))
+                        commented_methods.add(parsers[file_type].remove_comment_in_method(comment_code))
+                    
+                    # print('commented methods')
+                    # print(commented_methods)
+                    # print('all_method')
+                    # for m in all_methods:
+                    #     print(m)
 
                     num_no_commented = 0
                     for method, method_code, line, num_sig in all_methods:

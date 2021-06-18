@@ -27,7 +27,7 @@ def override_cfg(cfg, opts):
 
     if 'recursive_depth' in opts:
         cfg.set_recursive(True)
-        cfg.set_recursive_depth(opts['recursive_depth'])
+        cfg.set_recursive_depth(int(opts['recursive_depth']))
 
 
 sys_ver_info = tuple(list(sys.version_info)[:3])

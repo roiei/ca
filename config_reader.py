@@ -86,6 +86,12 @@ class Config:
 
     def is_duplicate_param_permitted(self):
         return self.cfg['permite_duplicate_param']
+    
+    def set_enum_cfg(self, enum_cfg):
+        self.cfg['enum_cfg'] = enum_cfg
+
+    def get_enum_guard_keywords(self):
+        return self.cfg['enum_cfg']['guardian_keyword']
 
 
 class ConfigReader:
@@ -131,6 +137,9 @@ class ConfigReader:
 
         if 'filter_keyword' in cfg_json:
             cfg.set_filter_keyword(cfg_json["filter_keyword"])
+        
+        if 'enum_cfg' in cfg_json:
+            cfg.set_enum_cfg(cfg_json["enum_cfg"])
 
         if 'modular_matrices' in cfg_json:
             cfg.set_num_of_public_func(cfg_json["modular_matrices"]["num_of_public_func"])
