@@ -35,6 +35,7 @@ class DoxygenVerificationHandler(Cmd):
         if not locations:
             return False, None
 
+        enum_rules = cfg.get_enum_rules()
         parsers = collections.defaultdict(None)
         parsers[FileType.CPP_HEADER] = SyntaxParserFactory.create('hpp')
         if not parsers[FileType.CPP_HEADER]:
@@ -59,8 +60,16 @@ class DoxygenVerificationHandler(Cmd):
 
                 pos_line = parsers[file_type].get_line_pos(whole_code)
 
-                for rule_name, rule_func in self.rules.items():
-                    rule_func(parsers[file_type], directory, file, whole_code, \
+                for rule in enum_rules:
+                    acc, rule = rule.split('::')
+                    if acc != 'must':
+                        continue
+
+                    if rule not in self.rules:
+                        print('Not supported rule.')
+                        continue
+
+                    self.rules[rule](parsers[file_type], directory, file, whole_code, \
                         pos_line, dir_errs, stat, err_stats, cfg)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
@@ -188,9 +197,7 @@ class DoxygenVerificationHandler(Cmd):
             'err method %']
         #cols = ['dir name', 'class name', '# err']
         rows = []
-        col_widths = [6, 9, 7, 5, 5, 8, 12, 12]
-
-        tot_num_err = sum([freq for dir, stat in err_stats.items() for file, clzs in stat.items() for clz, freq in clzs.items()])
+        col_widths = [6, 9, 7, 5, 6, 8, 12, 12]
         tot_num_dir = len(err_stats.keys())
         num_clzs    = sum(len(clzs.keys()) for dir, stat in err_stats.items() for file, clzs in stat.items())
         if not stat.num_items:
@@ -200,7 +207,7 @@ class DoxygenVerificationHandler(Cmd):
         row += ('{:<6d}', tot_num_dir),
         row += ('{:<8d}', num_clzs),
         row += ('{:<7d}', stat.num_items),
-        row += ('{:<5d}', tot_num_err),
+        row += ('{:<5d}', stat.num_errs),
         row += ('{:<0.2f}%', (stat.num_errs/stat.num_items)*100),
         row += ('{:<8d}', stat.tot_method),
         row += ('{:<12d}', stat.err_method),
