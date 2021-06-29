@@ -92,6 +92,9 @@ class Config:
 
     def get_enum_guard_keywords(self):
         return self.cfg['enum_cfg']['guardian_keyword']
+    
+    def get_enum_rules(self):
+        return self.cfg['enum_cfg']['rules']
 
 
 class ConfigReader:

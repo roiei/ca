@@ -59,7 +59,6 @@ class CppHeaderParser(SyntaxParser):
         super().__del__()
 
     def __get_class_name_from_file(self, file):
-        #pname, pattern = SearchPatternCpp.get_pattern_class_def()
         pattern = re.compile('(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
         class_name = []
 
@@ -75,7 +74,6 @@ class CppHeaderParser(SyntaxParser):
 
                 class_name += m.groups()[1],
 
-        #print('name = ', class_name)
         return class_name
 
     def get_non_class_code(self, code):
@@ -114,9 +112,7 @@ class CppHeaderParser(SyntaxParser):
         for s, e in sections:
             non_clz_code = non_clz_code[:s] + non_clz_code[e:]
 
-        #print('---'*10 + '\n' + non_clz_code + '\n' + '---'*10)
         return non_clz_code
-
 
     def get_each_class_code(self, code):
         """
@@ -149,7 +145,7 @@ class CppHeaderParser(SyntaxParser):
             res_found_clz += found,
             clz_codes[clz] = self.__remove_curly_brace(code[idx:idx + eidx])
 
-            # if there is class code in the class 
+            # call itself recrusively for nested class
             clz_idxs, nested_class_codes = self.get_each_class_code(clz_codes[clz][:])
             for nclz, nclz_code in nested_class_codes.items():
                 clz_codes["nested::" + nclz] = nclz_code
@@ -187,7 +183,6 @@ class CppHeaderParser(SyntaxParser):
             line = self.find_line(pos_line, pos)
             name = self.get_enum_name(expr)
             enum_codes += (name, expr, line),
-            #print('enum code = ', expr)
 
         return enum_codes
 
@@ -337,7 +332,6 @@ class CppHeaderParser(SyntaxParser):
 
     def __split_return(self, func_expr, clz):
         expr = self.__remove_whitespace_between_brace(func_expr)
-        #print('expr = ', expr)
         i = 0
         n = len(expr)
         res = []
@@ -371,7 +365,6 @@ class CppHeaderParser(SyntaxParser):
         if sb != -1 and eb != -1:
             res = res[:sb]
 
-        #print(': ', res, clz, res.find(clz))
         if -1 != res.find(clz):
             return None
 
@@ -541,7 +534,6 @@ class CppHeaderParser(SyntaxParser):
         errs = []
         params = self.__split_param(func_code)
         ret = self.__split_return(func_code, 'None')
-        # print('params = ', params, 'ret = ', ret)
 
         ret_var, code_param = self.__get_variable_name(params)
         code_params += code_param
@@ -591,7 +583,6 @@ class CppHeaderParser(SyntaxParser):
 
             expr = expr.strip()
             m = pattern.search(expr)
-            #print(expr)
             if m:
                 sx = m.span()[0]
                 ex = m.span()[1]
@@ -601,9 +592,6 @@ class CppHeaderParser(SyntaxParser):
                     pos = whole_code.find(expr)
                     line = self.find_line(pos_line, pos)
 
-                #print(expr, pos_line, pos)
-                #sys.exit()
-                #print(expr)
                 logger.log('method = {}'.format(expr))
                 params = self.__split_param(expr)
                 ret = self.__split_return(expr, clz)
@@ -612,7 +600,6 @@ class CppHeaderParser(SyntaxParser):
                 access_mod[modifier + ' attribute'] += (expr, None, None, -1),
             i += 1
 
-        #self.__print_class_methods(clz, access_mod)
         logger.log('-{} of {}'.format(sys._getframe().f_code.co_name, clz) + '\n'*2)
         return access_mod
 
@@ -861,11 +848,6 @@ class CppHeaderParser(SyntaxParser):
 
         return res if res else {"violate_modularity": True}
 
-    def get_method_calls(self, code):
-        print(code)
-        sys.exit()
-        pass
-
     def get_method_name(self, method):
         sx, ex = self.__get_param_pos(method)
         if -1 == sx:
@@ -981,7 +963,7 @@ class CppHeaderParser(SyntaxParser):
                     if not success:
                         result[(clz, clz_type)] += pname,
 
-        return result    # missing_rules
+        return result
 
     def get_methods(self, code):
         """
@@ -1010,7 +992,7 @@ class CppHeaderParser(SyntaxParser):
             methods = self.__get_class_methods_attrs(clz, clz_codes[clz])
             clz_methods[clz] = methods
 
-        return clz_methods    # missing_rules
+        return clz_methods
 
     def get_methods_in_class(self, clz_name, clz_code, whole_code, pos_line):
         if not clz_code:
@@ -1081,9 +1063,6 @@ class CppHeaderParser(SyntaxParser):
             end = code[comment_end:].find(';')
             chunk_code = code[comment_start:end + comment_end + 1]
 
-            # print('chunk_code = ', chunk_code)
-            # print('-----')
-
             if get_name:
                 method_name = get_name(chunk_code)
                 if '' != method_name:
@@ -1121,9 +1100,6 @@ class CppHeaderParser(SyntaxParser):
             start, end = item.span()[0], item.span()[1]
 
     def verify_doxycoment_methods(self, comment_code, whole_code, clz, pos_line, is_dup_permitted=False):
-        # print('--------------->>')
-        # print('comment_code = ', comment_code)
-        # print('---------------<<')
         res = RetType.SUCCESS
         errs = []
         comment_pattern = re.compile('(?s)\/\*.*?\*\/')
@@ -1145,8 +1121,6 @@ class CppHeaderParser(SyntaxParser):
         doxy_returns = self.__get_doxy_patterns(commnet_lines, {'return': '@\s*(retval|return)\s*'})
 
         func_code = self.__get_func_code(code)
-
-        #print(func_code)
         if not func_code:
             errs += (-1, 'ERROR: no code but comment'),
             return RetType.WARN, errs
@@ -1161,14 +1135,10 @@ class CppHeaderParser(SyntaxParser):
             return ret, errs
 
         return_code = self.__split_return(func_code, clz)
-        #print('return = ', return_code, 'for func = ', func_code)
         if return_code in {'explicit', 'virtual'}:
             return_code = None
 
         if return_code and (-1 != return_code.find(clz) or (-1 != clz.find(return_code))):
-            # if return_code != clz:
-            #     errs += (err_line, 'did you try to declare constructor?'),
-            #     res = RetType.ERROR
             return_code = None
 
         for code_param in code_params:
@@ -1183,8 +1153,6 @@ class CppHeaderParser(SyntaxParser):
                 res = RetType.ERROR
             elif not is_dup_permitted:
                 code_params.pop(code_params.index(doxy_param_name))
-
-        #print('return code = ', return_code)
 
         if return_code:
             return_code = return_code.split()
@@ -1230,11 +1198,13 @@ class CppHeaderParser(SyntaxParser):
             lines += line,
             i += 1
         
+        for i in range(len(lines)):
+            lines[i] = lines[i].replace('\\n', '')
+
         return lines
 
     def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line, cfg):
         errs = []
-
         sx = enum_code.find('{')
         ex = enum_code.rfind('}')
         offset_lines = enum_code[:sx].count('\n')
@@ -1244,12 +1214,13 @@ class CppHeaderParser(SyntaxParser):
         lines = self.__doxygen_split_lines(enum_code)
 
         patterns = [
-            re.compile("\/\*\*<[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/"),
-            re.compile('\/\/\/<[\w\s\.[=\]\-_:;()\'\"\/,\>\<!@#$%^~&*`+?]*')     # used in single line (so removed \n)
+            # todo
+            # \/\*(\*|!)[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/
+            ('/**', '*/', re.compile("\/\*\*[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/")),
+            ('///', '', re.compile('\/\/\/[\w\s\.[=\]\-_:;()\'\"\/,\>\<!@#$%^~&*`+?]*'))     # used in single line (so removed \n)
         ] 
 
         for i, line in enumerate(lines):
-            #print('line = ', line)
             if not line:
                 continue
 
@@ -1265,7 +1236,7 @@ class CppHeaderParser(SyntaxParser):
             enum_val = line[:] if -1 == ex else line[:ex]
             enum_val = self.remove_comment(enum_val)
 
-            for pattern in patterns:
+            for start_patt, end_patt, pattern in patterns:
                 m = pattern.search(line)
                 if not m:
                     continue
@@ -1274,31 +1245,25 @@ class CppHeaderParser(SyntaxParser):
                 ex = m.span()[1]
                 comment = line[sx:ex + 1]
                 sx, ex = 0, 0
-                if comment.startswith('/**<'):
-                    sx = comment.find('/**<') + 4
-                    ex = comment.rfind('*/') - 1
-                else:
-                    sx = comment.find('///<') + 4
-                    ex = len(comment)
+                if comment.startswith(start_patt):
+                    sx = comment.find(start_patt) + len(start_patt)
+                    if end_patt:
+                        ex = comment.rfind(end_patt)
+                    else:
+                        ex = len(comment)
 
-                comment = comment[sx:ex + 1].strip()
-                #print('comment = ', comment)
+                if comment[sx] == '<':
+                    sx += 1
+                comment = comment[sx:ex].strip()
 
             if (not comment and enum_val) and enum_val not in guard_keywords:
                 errs += (offset_lines + enum_line + i, '\'' + line + '\'' + \
                     'is not documented'),
 
-            # todo:
-            # 1. find  /**< 16 bits signed little endian */
-            # ///< BOOK_MARK 
-            # \/\*\*<[\w\s[=\]-_:;()'"\/!@#$%^~&*`+?]*\*\/
-
         return len(lines), errs
-
 
     def get_code(self, file):
         lines = []
-
         res = UtilFile.get_lines(file, lines)
         if ReturnType.SUCCESS != res:
             return None
@@ -1335,4 +1300,3 @@ class CppHeaderParser(SyntaxParser):
                 r = m - 1
 
         return -1
-

@@ -72,7 +72,10 @@ class UtilPrint:
             for idx, val in enumerate(zip(item_lens, line)):
                 item_len, item_value = val
                 each_fmt, param = item_value
-                item = each_fmt.format(param)
+                if type(param) is list:
+                    item = each_fmt.format(*param)
+                else:
+                    item = each_fmt.format(param)
                 n = len(item)
 
                 num_lines = n//item_len
