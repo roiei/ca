@@ -123,11 +123,13 @@ class CPPVerificationHandler(Cmd):
                 if file_type not in syntax_parsers:
                     continue
 
-                whole_code = syntax_parsers[file_type].get_code_without_comment(file)
+                parser = syntax_parsers[file_type]
+
+                whole_code = parser.get_code_without_comment(file)
                 if not whole_code:
                     continue
 
-                missing_rules = syntax_parsers[file_type].check_rules(whole_code, report, cfg, coverage)
+                missing_rules = parser.check_rules(whole_code, report, cfg, coverage)
                 if not missing_rules:
                     continue
 

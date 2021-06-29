@@ -53,14 +53,16 @@ class DoxygenVerificationHandler(Cmd):
                 if file_type not in parsers:
                     continue
 
-                whole_code = parsers[file_type].get_code(file)
+                parser = parsers[file_type]
+
+                whole_code = parser.get_code(file)
                 if not whole_code:
                     continue
 
-                pos_line = parsers[file_type].get_line_pos(whole_code)
+                pos_line = parser.get_line_pos(whole_code)
 
                 for rule_name, rule_func in self.rules.items():
-                    rule_func(parsers[file_type], directory, file, whole_code, \
+                    rule_func(parser, directory, file, whole_code, \
                         pos_line, dir_errs, stat, err_stats, cfg)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
