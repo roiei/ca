@@ -73,12 +73,12 @@ class NetworkX:
 
         ng.add_edges_from(edges)  # color is not set here but at draw
 
-        edges_color2 = [attr['color'] for uid, vid, attr in ng.edges(data=True)]
+        edge_colors = [attr['color'] for uid, vid, attr in ng.edges(data=True)]
 
         nx.draw(ng, pos, 
             node_size=node_sizes, 
             node_color=node_colors,
-            edge_color=edges_color2,
+            edge_color=edge_colors,
             labels=id_to_node, 
             with_labels=False)
         
@@ -109,3 +109,53 @@ class NetworkX:
 
         #nx.draw_random(ng, node_size=node_sizes, labels=id_to_node, with_labels=True)    
         plt.show()
+
+    @staticmethod
+    def get_trace(graph, node: "start node"):
+        """
+        @param[in] graph {"node_name": ModuleInfo, ...}
+        @retval {(u1, v1), (u2, v2), ...}
+        """
+        trace = set()
+        q = [node]
+        visited = set(node)
+
+        while q:
+            u = q.pop(0)
+
+            for v in graph[u].fan_outs:
+                trace.add((u, v))
+
+            for v in graph[u].fan_outs:
+                if v in visited:
+                    continue
+
+                visited.add(v)
+                q += v,
+            
+        return trace
+    
+    @staticmethod
+    def print_trace(graph, node: "start node"):
+        """
+        @param[in] graph {"node_name": ModuleInfo, ...}
+        """
+        q = [(node, 0)]
+        visited = set(node)
+
+        while q:
+            u, depth = q.pop(0)
+            print('--'*depth + '> ' + u)
+            
+            for v in graph[u].fan_outs:
+                print('--'*(depth + 1) + '> ' + v)    
+
+            for v in graph[u].fan_outs:
+                if v in visited:
+                    continue
+
+                visited.add(v)
+                q += (v, depth + 1),
+        print()
+
+

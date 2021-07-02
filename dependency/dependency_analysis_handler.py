@@ -42,15 +42,17 @@ class DependencyAnalysisHandler(Cmd):
             'APP': 2,
             'LIB': 3,
             'SVC': 4,
-            'HAL': 5
+            'LIB:HAL': 5
         }
 
         self.allowed_dep = {
             'HMI_APP': {'HMI_APP', 'HMI_LIB', 'APP', 'LIB', 'ETC'},
             'HMI_LIB': {'APP', 'LIB', 'ETC'},
             'APP': {'APP', 'LIB', 'ETC'},
-            'LIB': {'SVC', 'ETC'},
-            'SVC': {'SVC', 'HAL', 'ETC'}
+            'LIB': {'SVC', 'ETC'},          # interface lib
+            'SVC': {'SVC', 'HAL', 'ETC'},
+            'LIB:HAL': {'ETC'},
+            'ETC': {'ETC'}
         }
 
     def __del__(self):
@@ -148,7 +150,7 @@ class DependencyAnalysisHandler(Cmd):
         self.calc_stability(graph)
 
         # print('+traverse')
-        # self.traverse_graph(graph)
+        # self.traverse_graphs(graph)
         # print()
         # self.dump(graph)
         # sys.exit()
@@ -173,11 +175,16 @@ class DependencyAnalysisHandler(Cmd):
         # plt.xticks(range(len(graph)), [k for k in graph], rotation=90)
         # plt.show()
 
-        print(graph['hcollection'].fan_outs)
-
-
         if 'graph' in opts and opts['graph'] == 'True':
-            NetworkX.draw_layered_diagram(graph, links, color_edges, node_to_id, id_to_node, self.dep_cfg)
+            if 'node' in opts and opts['node']:
+                trace = NetworkX.get_trace(graph, 'systemuimanager')
+                self.traverse_graphs(graph, ['systemuimanager'])
+
+                for uid, vid, attr in color_edges:
+                    attr['color'] = 'red' if (id_to_node[uid], id_to_node[vid]) in trace else 'white'
+                
+            NetworkX.draw_layered_diagram(graph, links, color_edges, node_to_id, \
+                id_to_node, self.dep_cfg)
 
         return True
     
@@ -220,12 +227,17 @@ class DependencyAnalysisHandler(Cmd):
             color = def_edge_color
             weight = def_weight
 
-            if graph[v].type not in self.allowed_dep[graph[u].type]:
-                if not ((graph[u].type in {'LIB', 'SVC', 'HAL'} and graph[v].type == 'LIB') \
-                    and v in base_apis):
-                    color = 'red'
-                    cnt += 1
-                    violations += (u, v),
+            try:
+                if graph[v].type not in self.allowed_dep[graph[u].type]:
+                    if not ((graph[u].type in {'LIB', 'SVC', 'HAL'} and graph[v].type == 'LIB') \
+                        and v in base_apis):
+                        color = 'red'
+                        cnt += 1
+                        violations += (u, v),
+            except:
+                print('type ERROR')
+                print(f'{graph[v].type} for {v}')
+                print(f'{graph[u].type} for {u}')
             
             tot += 1
             color_edges += (uid, vid, {'color': color}),
@@ -323,12 +335,12 @@ class DependencyAnalysisHandler(Cmd):
                 g[u].instability = \
                     len(g[u].fan_outs)/(len(g[u].fan_ins) + len(g[u].fan_outs))
 
-    def traverse_graph(self, g):
-        nodes = []
-        for k, v in g.items():
-            #if v.type in {'APP', 'SVC', 'LIB'}:
-            if v.type in {'APP', 'SVC'}:
-                nodes += k,
+    def traverse_graphs(self, g, nodes=[]):
+        if not nodes:
+            for k, v in g.items():
+                #if v.type in {'APP', 'SVC', 'LIB'}:
+                if v.type in {'APP', 'SVC'}:
+                    nodes += k,
 
         inbound = collections.defaultdict(int)
         for u in g:
@@ -337,29 +349,31 @@ class DependencyAnalysisHandler(Cmd):
 
         for node in nodes:
             print('Traverse: ')
-            depth = 0
             cur_inbound = copy.deepcopy(inbound)
-            
-            q = [(node, depth)]
-            visited = set()
+            self.traverse_graph(g, node, cur_inbound)
+    
+    def traverse_graph(self, g, node, cur_inbound):
+        q = [(node, 0)]
 
-            while q:
-                u, depth = q.pop()
-                print((1 if depth else 0)*' +', \
-                    depth*'--+', (1 if depth else 0)*'>', u, \
-                    ' in ({}), out ({}), I = {:.3f}'.format(
-                        len(g[u].fan_ins),
-                        len(g[u].fan_outs),
-                        g[u].instability))
+        while q:
+            u, depth = q.pop()
+            print((1 if depth else 0)*' +', \
+                depth*'--+', (1 if depth else 0)*'>', u, \
+                ' in ({}), out ({}), I = {:.3f}'.format(
+                    len(g[u].fan_ins),
+                    len(g[u].fan_outs),
+                    g[u].instability))
 
-                visited.add(u)
-                if cur_inbound[u]:
-                    cur_inbound[u] -= 1
+            if 0 == cur_inbound[u] and u != node:
+                continue
 
-                for v in g[u].fan_outs:
-                    q += (v, depth + 1),
+            if cur_inbound[u]:
+                cur_inbound[u] -= 1
 
-            print()
+            for v in g[u].fan_outs:
+                q += (v, depth + 1),
+
+        print()
 
     def get_links(self, g):
         edges = set()
