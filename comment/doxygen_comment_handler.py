@@ -66,10 +66,6 @@ class DoxygenVerificationHandler(Cmd):
 
                 pos_line = parser.get_line_pos(whole_code)
 
-<<<<<<< HEAD
-                for rule_name, rule_func in self.rules.items():
-                    rule_func(parser, directory, file, whole_code, \
-=======
                 for rule in enum_rules:
                     acc, rule = rule.split('::')
                     if acc != 'must':
@@ -80,7 +76,6 @@ class DoxygenVerificationHandler(Cmd):
                         continue
 
                     self.rules[rule](parsers[file_type], directory, file, whole_code, \
->>>>>>> 9c708d72a0ee386b194fa0b6adea3c67ddc3a9fe
                         pos_line, dir_errs, stat, err_stats, cfg)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
@@ -139,8 +134,8 @@ class DoxygenVerificationHandler(Cmd):
 
         for clz, code in clz_codes.items():
             dir_errs[file][clz] = dir_errs[file][clz]
-            comment_codes = parser.get_doxy_comment_method_chunks(code, clz)
-            all_methods = set(parser.get_methods_in_class(clz, code, whole_code, pos_line))
+            comment_codes = parser.get_doxy_comment_method_chunks(code.code, clz)
+            all_methods = set(parser.get_methods_in_class(clz, code.code, whole_code, pos_line))
 
             commented_methods = set()
             for line, comment_code, method_name in comment_codes:

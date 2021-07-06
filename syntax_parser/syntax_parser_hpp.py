@@ -14,6 +14,14 @@ from syntax_parser.cpp_parser import *
 logger = Logger(False)
 
 
+class ClassCodeInfo:
+    def __init__(self):
+        self.code = ''
+        self.start_line = 0
+        self.start_offset = 0
+        self.nested = False
+
+
 class CppHeaderParser(SyntaxParser):
     def __init__(self, name):
         super().__init__(name)
@@ -27,6 +35,7 @@ class CppHeaderParser(SyntaxParser):
         self.ignore_class_name = self.cfg_json['ignore_class_name']
         self.rule_funcs = {
             "rof": self.__check_rof,
+            "smf_pos": self.__check_smf_pos,
             "prohibit_protected": self.__check_protected,
             "singleton_getinstance_return": self.__check_getinstance_return,
             "class_type": self.__check_class_type,
@@ -114,14 +123,15 @@ class CppHeaderParser(SyntaxParser):
 
         return non_clz_code
 
-    def get_each_class_code(self, code):
+    def get_each_class_code(self, code, pos_line=None):
         """
         OUT:
             {"class1":"code1", "class2":"code2"}
         """
         pattern = re.compile('(enum\s*)*(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
-        clz_codes = collections.defaultdict(str)
+        clz_codes = collections.defaultdict(ClassCodeInfo)
         res_found_clz = []
+        pos = 0
 
         while True:
             m = pattern.search(code)
@@ -134,32 +144,43 @@ class CppHeaderParser(SyntaxParser):
             if -1 == idx:
                 break
 
-            eidx = self.__find_class_end_with_code(code, idx)
-            if -1 == eidx:
+            length = self.__find_class_end_with_code(code, idx)
+            if -1 == length:
                 break
 
             if 'enum' in found:
-                code = code[idx + eidx:]
+                code = code[idx + length:]
                 continue
 
             res_found_clz += found,
-            clz_codes[clz] = self.__remove_curly_brace(code[idx:idx + eidx])
+            code_info = ClassCodeInfo()
+            clz_codes[clz] = code_info
+
+            if pos_line:
+                line = self.find_line(pos_line, pos + idx)
+                code_info.start_line = line
+                code_info.start_offset = pos + idx
+
+            code_info.code = self.__remove_curly_brace(code[idx:idx + length])
 
             # call itself recrusively for nested class
-            clz_idxs, nested_class_codes = self.get_each_class_code(clz_codes[clz][:])
+            clz_idxs, nested_class_codes = self.get_each_class_code(code_info.code[:])
             for nclz, nclz_code in nested_class_codes.items():
                 clz_codes["nested::" + nclz] = nclz_code
 
-            clz_codes[clz] = self.__remove_code_in_header(clz, clz_codes[clz])
+            #clz_codes[clz] = self.__remove_code_in_header(clz, clz_codes[clz])
+            code_info.code = self.__remove_code_in_header(clz, code_info.code)
 
             for nclz_found in clz_idxs:
                 idx = nclz_found.find('{')
                 if idx == -1:
                     continue
                 nclz_found = nclz_found[:idx]
-                clz_codes[clz] = re.compile(nclz_found).sub("", clz_codes[clz])
+                #clz_codes[clz] = re.compile(nclz_found).sub("", clz_codes[clz])
+                code_info.code = re.compile(nclz_found).sub("", code_info.code)
 
-            code = code[idx + eidx:]
+            code = code[idx + length:]
+            pos += idx + length
 
         return res_found_clz, clz_codes
 
@@ -674,7 +695,7 @@ class CppHeaderParser(SyntaxParser):
         return clz_type
 
     # rule code
-    def __check_rof(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_rof(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         OUT
             {"pattern1":False, "pattern2":True, ...}
@@ -683,19 +704,56 @@ class CppHeaderParser(SyntaxParser):
             return None
 
         done = collections.defaultdict(bool)
-
         for pname, pattern in SearchPatternCpp.get_pattern_rof():
             if done[pname]:     # set False here
                 continue
 
-            res = pattern.search(clz_codes[clz])
+            res = pattern.search(clz_codes[clz].code)
             if res:
                 done[pname] = True
+        
+        return done
+    
+    # rule code
+    def __check_smf_pos(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
+        """
+        OUT
+            {"pattern1":False, "pattern2":True, ...}
+        """
+        done = collections.defaultdict(bool)
 
+        pname, pattern_smf = SearchPatternCpp.get_special_member_functions()
+        func_types = []
+
+        for attr, records in clz_methods.items():
+            mod, mem_type = attr.split()
+            if mem_type != 'method':
+                continue
+
+            for record in records:
+                expr, params, ret, line = record
+                res = pattern_smf.search(expr + ';')
+                if res:
+                    func_types += [expr, line, False],
+                    print('SMF ', expr)
+                else:
+                    if func_types and func_types[-1]:
+                        func_types[-1][2] = True
+                    func_types += None,
+                    print('REG ', expr)
+        
+        for info in func_types:
+            if not info:
+                continue
+        
+            expr, line, regular_exist = info
+            if regular_exist:
+                done['wrong RoF/SMF pos'] = False
+        print()
         return done
 
     # rule code
-    def __check_friend(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_friend(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         done = collections.defaultdict(bool)
 
         if not clz_codes[clz]:
@@ -705,14 +763,14 @@ class CppHeaderParser(SyntaxParser):
             if done[pname]:     # set False here
                 continue
 
-            res = pattern.search(clz_codes[clz])
+            res = pattern.search(clz_codes[clz].code)
             if not res:
                 done[pname] = True
 
         return done
 
     # rule code
-    def __check_protected(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_protected(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         done = collections.defaultdict(bool)
 
         if not clz_codes[clz]:
@@ -722,14 +780,14 @@ class CppHeaderParser(SyntaxParser):
             if done[pname]:     # set False here
                 continue
 
-            res = pattern.search(clz_codes[clz])
+            res = pattern.search(clz_codes[clz].code)
             if not res:
                 done[pname] = True
 
         return done
 
     # rule code
-    def __check_getinstance_return(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_getinstance_return(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         DESC:
             this function checks whether getInstance returns raw pointer or similar to that.
@@ -747,7 +805,7 @@ class CppHeaderParser(SyntaxParser):
             if done[pname]:     # set False here
                 continue
 
-            res = pattern.search(clz_codes[clz])
+            res = pattern.search(clz_codes[clz].code)
             if not res:
                 #print(clz_codes[clz][res.span()[0] - 100 : res.span()[1]])
                 done[pname] = True
@@ -755,7 +813,7 @@ class CppHeaderParser(SyntaxParser):
         return done
 
     # rule code
-    def __check_class_type(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_class_type(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         DESC:
             check class type is defined one or not
@@ -768,7 +826,7 @@ class CppHeaderParser(SyntaxParser):
         return {'UNDEFINED class type' : True}
 
     # rule code
-    def __check_prohibit_keyword(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_prohibit_keyword(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         res = {}
         for keyword in self.filter_keywords:
             namespace, keyword = keyword.split('::')
@@ -779,7 +837,7 @@ class CppHeaderParser(SyntaxParser):
         return res
 
     # rule code
-    def __check_suffix(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_suffix(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         DESC:
             check class type is defined one or not
@@ -794,7 +852,7 @@ class CppHeaderParser(SyntaxParser):
         return {"wrong_suffix": True}
 
     # rule code
-    def __check_nested_class(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_nested_class(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         """
         if clz.startswith('nested::'):
@@ -803,7 +861,7 @@ class CppHeaderParser(SyntaxParser):
         return {"nested class": True}
 
     # rule code
-    def __check_cohesion_num_public_methods(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_cohesion_num_public_methods(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         """
         res = {}
@@ -816,7 +874,7 @@ class CppHeaderParser(SyntaxParser):
         return {"violate_modularity": True}
 
     # rule code
-    def __check_cohesion_num_params(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_cohesion_num_params(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         """
         res = {}
@@ -831,7 +889,7 @@ class CppHeaderParser(SyntaxParser):
         return res if res else {"violate_modularity": True}
 
     # rule code
-    def __check_raw_pointer(self, clz, clz_type, clz_codes, clz_methods, cfg):
+    def __check_raw_pointer(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         """
         """
         res = {}
@@ -931,7 +989,8 @@ class CppHeaderParser(SyntaxParser):
             missing rules : {(cls, cls_type) : [missing_pattern_name1, missing_pattern_name2}
         """
         rules = cfg.get_rules()
-        get_each_class_code, clz_codes = self.get_each_class_code(code)
+        pos_line = self.get_line_pos(code)
+        get_each_class_code, clz_codes = self.get_each_class_code(code, pos_line)
         if not clz_codes:
             return None
 
@@ -942,9 +1001,9 @@ class CppHeaderParser(SyntaxParser):
             if self.class_filter.is_registered_suffix_exist(clz[::-1])[0]:
                 continue
 
-            clz_type = self.__get_clz_type(clz, clz_codes[clz])
+            clz_type = self.__get_clz_type(clz, clz_codes[clz].code)
             SearchPatternCpp.reset_patterns(clz)
-            clz_methods = self.__get_class_methods_attrs(clz, clz_codes[clz])
+            clz_methods = self.__get_class_methods_attrs(clz, clz_codes[clz].code, code, pos_line)
 
             for rule in rules:
                 acc, rule = rule.split('::')
@@ -955,7 +1014,7 @@ class CppHeaderParser(SyntaxParser):
                     print('Not supported rule.')
                     continue
 
-                done = self.rule_funcs[rule](clz, clz_type, clz_codes, clz_methods, cfg)
+                done = self.rule_funcs[rule](clz, clz_type, clz_codes, clz_methods, pos_line, cfg)
                 if not done:
                     continue
 
@@ -983,13 +1042,13 @@ class CppHeaderParser(SyntaxParser):
             if self.class_filter.is_registered_suffix_exist(clz[::-1])[0]:
                 continue
 
-            if not clz_codes[clz]:
+            if not clz_codes[clz].code:
                 continue
 
-            clz_type = self.__get_clz_type(clz, clz_codes[clz])
+            clz_type = self.__get_clz_type(clz, clz_codes[clz].code)
             SearchPatternCpp.reset_patterns(clz)
 
-            methods = self.__get_class_methods_attrs(clz, clz_codes[clz])
+            methods = self.__get_class_methods_attrs(clz, clz_codes[clz].code)
             clz_methods[clz] = methods
 
         return clz_methods

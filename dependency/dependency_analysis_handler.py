@@ -109,13 +109,6 @@ class DependencyAnalysisHandler(Cmd):
             return False, None
         
         locations = self.filter_files(locations)
-        """
-        for dir, files in locations.items():
-            print(dir)
-            print(files)
-            print()
-        sys.exit()
-        """
         
         prj = opts['prj']
         self.init(prj)

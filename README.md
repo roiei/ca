@@ -227,7 +227,10 @@ file: D:\projects\se\ca\test\test.h
   * 2) show stability of each component node by calculating fan-in and fan-out
 
 #### usage
-python main.py --cmd=dependency --path=project_path [--graph=True] [--node=node_name]
+python main.py --cmd=dependency --path=project_path [--graph=True] [--node=node_name] --prj=prj_name
+* prj
+  * designate project name that is used to identify which parser is going to be used
+  * e.g., ic project, add option as "--prj=ic"
 * graph
   * optional
   * it shows dependency graph
