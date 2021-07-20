@@ -150,4 +150,4 @@ class CPPVerificationHandler(Cmd):
             violate_cnt += report.violate_cnt
         
         print_rule_miss_result(reports, res_dirs, cfg)
-        return True if not violate_cnt else False
+        return 0 == violate_cnt

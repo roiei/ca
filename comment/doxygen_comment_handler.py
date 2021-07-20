@@ -48,6 +48,7 @@ class DoxygenVerificationHandler(Cmd):
 
         err_stats = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
         stat = DoxygenErrorStats()
+        tot_err = 0
 
         for directory, files in locations.items():
             if not files:
@@ -81,18 +82,22 @@ class DoxygenVerificationHandler(Cmd):
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
                 for clz, freq in clzs.items())
 
-            self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
             if num_err:
+                self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
                 self.print_detail_err_info(directory, err_stats, dir_errs)
+            tot_err += num_err
 
-        self.print_doxy_analysis_dir_stats(err_stats, stat, 'each')
-        self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
-        if 'graph' in opts and opts['graph']:
-            self.draw_err_ratio_distplot(err_stats, stat)
-            # self.draw_bar_chart(err_stats, stat)
-            self.draw_err_pie_charts(err_stats, stat)
+        if tot_err:
+            self.print_doxy_analysis_dir_stats(err_stats, stat, 'each')
+            self.print_doxy_analysis_overall_stats(err_stats, stat, 'overall')
 
-        return True
+            if 'graph' in opts and opts['graph']:
+                self.draw_err_ratio_distplot(err_stats, stat)
+                # self.draw_bar_chart(err_stats, stat)
+                self.draw_err_pie_charts(err_stats, stat)
+        
+        print(tot_err)
+        return 0 == tot_err
     
     def __check_enum(self, parser, directory, file, whole_code, pos_line, dir_errs, \
             stat, err_stats, cfg):

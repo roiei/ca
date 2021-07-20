@@ -99,7 +99,7 @@ def execute(cmd, opts):
 
     res = execute_handler(cmd, opts, cfg)
     if not res:
-        print('Not supported cmd')
+        print('executor returns error')
         return False
     return True
 
