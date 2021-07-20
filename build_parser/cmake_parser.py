@@ -101,13 +101,13 @@ class CMakeBuildScriptParser:
 
         res_name = name
         if name.startswith('$'):
-            res_name = CMakeBuildScriptParser._find_output_name(url, name, content)
+            name = res_name = CMakeBuildScriptParser._find_output_name(url, name, content)
 
         if not res_name:
             print('cmake:ERROR: could not find name = {}'.format(name), url)
             return
 
-        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
+        print('type = {}, name = {}, depth = {}, res_name = {}'.format(type, name, depth, res_name))
 
         g[name] = ModuleInfo()
         g[name].name = res_name

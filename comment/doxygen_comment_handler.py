@@ -134,8 +134,8 @@ class DoxygenVerificationHandler(Cmd):
 
         for clz, code in clz_codes.items():
             dir_errs[file][clz] = dir_errs[file][clz]
-            comment_codes = parser.get_doxy_comment_method_chunks(code, clz)
-            all_methods = set(parser.get_methods_in_class(clz, code, whole_code, pos_line))
+            comment_codes = parser.get_doxy_comment_method_chunks(code.code, clz)
+            all_methods = set(parser.get_methods_in_class(clz, code.code, whole_code, pos_line))
 
             commented_methods = set()
             for line, comment_code, method_name in comment_codes:

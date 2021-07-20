@@ -227,7 +227,16 @@ file: D:\projects\se\ca\test\test.h
   * 2) show stability of each component node by calculating fan-in and fan-out
 
 #### usage
-python main.py --cmd=dependency --path=project_path
+python main.py --cmd=dependency --path=project_path [--graph=True] [--node=node_name] --prj=prj_name
+* prj
+  * designate project name that is used to identify which parser is going to be used
+  * e.g., ic project, add option as "--prj=ic"
+* graph
+  * optional
+  * it shows dependency graph
+* node
+  * optional effective only graph is designated as True
+  * it enforces the only edges related to the node are highlighted
 
 &nbsp;
 
@@ -254,7 +263,15 @@ call_dependency
 #### result
 &nbsp;
 
-### 5. enumerate all the interfaces
+### 5. call dependency analysis
+call dependency
+
+#### usage
+python main.py --cmd=call_dependency --ppath=D:\projects\ccnc\all\api --upath=d:\projects\ccnc\all\app --savefile=ccos_methods.dat
+
+&nbsp;
+
+### 6. enumerate all the interfaces
 
 #### usage
 &nbsp;
@@ -316,6 +333,53 @@ call_dependency
   * set it true in order to create output file with the JSON formatted result
 
 &nbsp;
+
+
+### 7. code complexity analysis
+
+this feature is not under development
+&nbsp;
+
+#### idea
+
+sudo apt-get update --fix-missing
+sudo apt install clang
+sudo apt install llvm 
+sudo apt install graphviz
+
+1. LLVM IR compile
+clang++ -emit-llvm -S main2.cpp -o main2.ll
+
+2. generate CFG
+opt --dot-cfg main2.ll
+
+3. 
+dot -Tpng cfg.main.dot -o main.png
+dot -Tpng .main2.dot -o main2.png
+
+
+#### score idea
+
+macabb code complexity
+
+V(G) = E(edge) - N(node) + 2  <- complexity score
+V(G) = P(branch expression) + 1
+
+V(G) evaluation standard
+1~10: low risk
+11~20: somewhat complex, medium risk
+21~50: complex, high risk
+above 51: not testable, extremely high risk
+
+
+
+#### usage
+&nbsp;
+
+#### result
+
+&nbsp;
+
 
 ## configration file
 cfg.conf
