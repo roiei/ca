@@ -735,12 +735,12 @@ class CppHeaderParser(SyntaxParser):
                 res = pattern_smf.search(expr + ';')
                 if res:
                     func_types += [expr, line, False],
-                    print('SMF ', expr)
+                    #print('SMF ', expr)
                 else:
                     if func_types and func_types[-1]:
                         func_types[-1][2] = True
                     func_types += None,
-                    print('REG ', expr)
+                    #print('REG ', expr)
         
         for info in func_types:
             if not info:
@@ -749,7 +749,7 @@ class CppHeaderParser(SyntaxParser):
             expr, line, regular_exist = info
             if regular_exist:
                 done['wrong RoF/SMF pos'] = False
-        print()
+        #print()
         return done
 
     # rule code
