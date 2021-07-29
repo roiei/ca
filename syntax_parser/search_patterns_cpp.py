@@ -17,7 +17,7 @@ class SearchPatternCpp:
         SearchPatternCpp.patterns['move_const'] = re.compile("{}\s*\((const)*(\s)*{}(\s)*&&(\s)*[\w]*(\s)*\)(\s)*(noexcept)*(\s)*(=)*(\s)*(delete|default)*(\s)*;".format(clz, clz))
         SearchPatternCpp.patterns['move_assign'] = re.compile('(const(\s)*)*{}[\s]*&[\s]*operator[\s]*=[\s]*\((const)*[\s]*{}(\s)*&&(\s)*[\w]*(\s)*\)(\s)*((noexcept)*(\s)*=)*(\s)*[\w]*(\s)*;'.format(clz, clz))
         SearchPatternCpp.patterns['copy_assign'] = re.compile('(const(\s)*)*{}[\s]*&[\s]*operator[\s]*=[\s]*\((const)*[\s]*{}(\s)*&(\s)*[\w]*(\s)*\)(\s)*((noexcept)*(\s)*=)*(\s)*[\w]*(\s)*;'.format(clz, clz))
-        SearchPatternCpp.patterns['destructor'] = re.compile('~{}[\s]*\(\)'.format(clz))
+        SearchPatternCpp.patterns['destructor'] = re.compile('~{}[\s]*\(\)\s*=\s*delete\s*[\s\n]*;'.format(clz))
         #SearchPatternCpp.patterns['method'] = re.compile('(static|virtual)*(const)*\s*[\w\s,<>:~]+\s*\**&*\s*\s*~*(\w)*\s*(=|==)*\s*\([\w\d=,\s&\:<>*]*\)\s*(override|noexcept|const)*(\s*=\s*)*0*(delete)*(\s*=\s*)*(default)*\s*;*')
         SearchPatternCpp.patterns['special'] = re.compile('({}\s*\([\w\s&:*=,<>\"]*\)[\w\s=]*\s*;|operator\s*!*=+\s*\()'.format(clz))
         
@@ -35,6 +35,7 @@ class SearchPatternCpp:
         #SearchPatternCpp.patterns['class_definition'] = re.compile('(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
         SearchPatternCpp.patterns['curly_brace'] = re.compile('{[:\w\s~=<>&();]*}')
         SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\(+[\w\s&*<:>=,()\"]*\)+[\w\s=]*')
+        SearchPatternCpp.patterns['deleted_method'] = re.compile('=\s*delete[\s\n]*')
 
     @classmethod
     def get_pattern_curly_brace(cls):
@@ -90,3 +91,7 @@ class SearchPatternCpp:
     @classmethod
     def get_special_member_functions(cls):
         return 'special', cls.patterns['special']
+    
+    @classmethod
+    def get_deleted_method_pattern(cls):
+        return 'deleted_method', cls.patterns['deleted_method']

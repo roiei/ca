@@ -140,7 +140,8 @@ class DoxygenVerificationHandler(Cmd):
         for clz, code in clz_codes.items():
             dir_errs[file][clz] = dir_errs[file][clz]
             comment_codes = parser.get_doxy_comment_method_chunks(code.code, clz)
-            all_methods = set(parser.get_methods_in_class(clz, code.code, whole_code, pos_line))
+            all_methods = set(parser.get_methods_in_class(clz, code.code, 
+                whole_code, pos_line, cfg.is_deleted_method_ignorable()))
 
             commented_methods = set()
             for line, comment_code, method_name in comment_codes:
@@ -176,12 +177,11 @@ class DoxygenVerificationHandler(Cmd):
                     comment_code, whole_code, clz, pos_line,
                     cfg.is_duplicate_param_permitted())
 
-                errs.sort(key=lambda p: p[0])
-
                 if res is not RetType.SUCCESS and res is not RetType.WARN:
+                    errs.sort(key=lambda p: p[0])
                     dir_errs[file][clz] += errs
 
-                if errs:                            
+                if errs:
                     err_stats[directory][file][clz] += \
                         max(len(errs) - 1, 0)
                     stat.err_method += 1

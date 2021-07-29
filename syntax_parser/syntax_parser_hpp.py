@@ -564,7 +564,7 @@ class CppHeaderParser(SyntaxParser):
 
         return RetType.SUCCESS, errs
 
-    def __get_class_methods_attrs(self, clz, code, whole_code=None, pos_line=None):
+    def __get_class_methods_attrs(self, clz, code, whole_code=None, pos_line=None, ignore_deleted=False):
         """
         OUT:
             {"public":[method1, method2], "protected":[method3]}
@@ -578,6 +578,8 @@ class CppHeaderParser(SyntaxParser):
         if not pattern:
             print('ERROR: pattern for {} is not found'.format(pname))
             return
+        
+        _, delete_pattern = SearchPatternCpp.get_deleted_method_pattern()
 
         i = 0
         line = -1
@@ -609,14 +611,16 @@ class CppHeaderParser(SyntaxParser):
                 ex = m.span()[1]
                 expr = expr[sx:ex].strip()
 
-                if pos_line:
-                    pos = whole_code.find(expr)
-                    line = self.find_line(pos_line, pos)
+                if not ignore_deleted and delete_pattern.search(expr):
+                    print('found')
+                    if pos_line:
+                        pos = whole_code.find(expr)
+                        line = self.find_line(pos_line, pos)
 
-                logger.log('method = {}'.format(expr))
-                params = self.__split_param(expr)
-                ret = self.__split_return(expr, clz)
-                access_mod[modifier + ' method'] += (expr, params, ret, line),
+                    logger.log('method = {}'.format(expr))
+                    params = self.__split_param(expr)
+                    ret = self.__split_return(expr, clz)
+                    access_mod[modifier + ' method'] += (expr, params, ret, line),
             elif expr and self.__is_attribute(expr):
                 access_mod[modifier + ' attribute'] += (expr, None, None, -1),
             i += 1
@@ -1053,14 +1057,14 @@ class CppHeaderParser(SyntaxParser):
 
         return clz_methods
 
-    def get_methods_in_class(self, clz_name, clz_code, whole_code, pos_line):
+    def get_methods_in_class(self, clz_name, clz_code, whole_code, pos_line, ignore_deleted=False):
         if not clz_code:
             return None
 
         clz_code = re.compile("(?s)/\*.*?\*/").sub("", clz_code)
         clz_code = re.compile("//.*").sub("", clz_code)
 
-        method_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line)
+        method_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line, ignore_deleted)
         method_names = []
 
         for acc, methods in method_infos.items():
@@ -1192,7 +1196,7 @@ class CppHeaderParser(SyntaxParser):
         errs += [(-1, e) for e in err]
         if RetType.ERROR == ret:
             return ret, errs
-
+      
         return_code = self.__split_return(func_code, clz)
         if return_code in {'explicit', 'virtual'}:
             return_code = None

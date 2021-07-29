@@ -83,9 +83,15 @@ class Config:
 
     def set_duplicated_param_permitted(self, onoff):
         self.cfg['permite_duplicate_param'] = onoff
-
+    
     def is_duplicate_param_permitted(self):
         return self.cfg['permite_duplicate_param']
+    
+    def set_ignore_deleted_method(self, onoff):
+        self.cfg['ignore_deleted_method'] = onoff
+    
+    def is_deleted_method_ignorable(self):
+        return self.cfg['ignore_deleted_method']
     
     def set_enum_cfg(self, enum_cfg):
         self.cfg['enum_cfg'] = enum_cfg
@@ -154,5 +160,9 @@ class ConfigReader:
         if 'doxygen' in cfg_json:
             if 'permite_duplicate_param' in cfg_json['doxygen']:
                 cfg.set_duplicated_param_permitted(cfg_json['doxygen']['permite_duplicate_param'])
+        
+        if 'doxygen' in cfg_json:
+            if 'ignore_deleted_method' in cfg_json['doxygen']:
+                cfg.set_ignore_deleted_method(cfg_json['doxygen']['ignore_deleted_method'])
 
         return cfg

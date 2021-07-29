@@ -107,8 +107,6 @@ class CMakeBuildScriptParser:
             print('cmake:ERROR: could not find name = {}'.format(name), url)
             return
 
-        print('type = {}, name = {}, depth = {}, res_name = {}'.format(type, name, depth, res_name))
-
         g[name] = ModuleInfo()
         g[name].name = res_name
         g[name].type = type
