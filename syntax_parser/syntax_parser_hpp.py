@@ -68,7 +68,7 @@ class CppHeaderParser(SyntaxParser):
         super().__del__()
 
     def __get_class_name_from_file(self, file):
-        pattern = re.compile('(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        pattern_name, pattern = SearchPatternCpp.get_pattern_class_name()
         class_name = []
 
         with open(file, "r") as fp:
@@ -86,7 +86,7 @@ class CppHeaderParser(SyntaxParser):
         return class_name
 
     def get_non_class_code(self, code):
-        pattern = re.compile('(enum\s*)*(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        pattern_name, pattern = SearchPatternCpp.get_pattern_find_class_start()
         sections = []
         non_clz_code = code
         skipped_offset = 0
@@ -128,7 +128,7 @@ class CppHeaderParser(SyntaxParser):
         OUT:
             {"class1":"code1", "class2":"code2"}
         """
-        pattern = re.compile('(enum\s*)*(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        pattern_name, pattern = SearchPatternCpp.get_pattern_find_class_start()
         clz_codes = collections.defaultdict(ClassCodeInfo)
         res_found_clz = []
         pos = 0
@@ -189,7 +189,7 @@ class CppHeaderParser(SyntaxParser):
         OUT:
             {"class1":"code1", "class2":"code2"}
         """
-        pattern = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*\s*{\s*[\/*<\d\s,\w=|+();:!@#$%^&()-_=+\"\',~`]*}\s*;')
+        pattern_name, pattern = SearchPatternCpp.get_pattern_enum_code_section()
         clz_codes = collections.defaultdict(str)
         res_found_clz = []
 
@@ -612,7 +612,6 @@ class CppHeaderParser(SyntaxParser):
                 expr = expr[sx:ex].strip()
 
                 if not ignore_deleted and delete_pattern.search(expr):
-                    print('found')
                     if pos_line:
                         pos = whole_code.find(expr)
                         line = self.find_line(pos_line, pos)
@@ -725,7 +724,6 @@ class CppHeaderParser(SyntaxParser):
             {"pattern1":False, "pattern2":True, ...}
         """
         done = collections.defaultdict(bool)
-
         pname, pattern_smf = SearchPatternCpp.get_special_member_functions()
         func_types = []
 
@@ -739,12 +737,10 @@ class CppHeaderParser(SyntaxParser):
                 res = pattern_smf.search(expr + ';')
                 if res:
                     func_types += [expr, line, False],
-                    #print('SMF ', expr)
                 else:
                     if func_types and func_types[-1]:
                         func_types[-1][2] = True
                     func_types += None,
-                    #print('REG ', expr)
         
         for info in func_types:
             if not info:
@@ -753,7 +749,7 @@ class CppHeaderParser(SyntaxParser):
             expr, line, regular_exist = info
             if regular_exist:
                 done['wrong RoF/SMF pos'] = False
-        #print()
+
         return done
 
     # rule code
@@ -811,7 +807,6 @@ class CppHeaderParser(SyntaxParser):
 
             res = pattern.search(clz_codes[clz].code)
             if not res:
-                #print(clz_codes[clz][res.span()[0] - 100 : res.span()[1]])
                 done[pname] = True
 
         return done
@@ -827,6 +822,7 @@ class CppHeaderParser(SyntaxParser):
         """
         if ClassType.UNDEFINED == clz_type:
             return {'UNDEFINED class type' : False}
+
         return {'UNDEFINED class type' : True}
 
     # rule code
@@ -922,21 +918,21 @@ class CppHeaderParser(SyntaxParser):
         method_chunks = method_name.split()
 
         try:
-            if len(method_chunks) > 1 and method_chunks[-1] in {'==', '=', '+', '-'} and 'operator' in method_chunks[-2]:
+            if len(method_chunks) > 1 and method_chunks[-1] in {'==', '=', '+', '-'} and \
+                    'operator' in method_chunks[-2]:
                 method_name = method_chunks[-2] + method_chunks[-1]
             else:
                 method_name = method_chunks[-1] 
         except IndexError:
             print('index err @ method: ', method_name)
             print(method, sx, ex)
-            print('app is terminated...')
             sys.exit()
 
         return method_name
 
     def get_enum_name(self, chunk):
         chunk = self.remove_comment(chunk)
-        pattern = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*')
+        pattern_name, pattern = SearchPatternCpp.get_pattern_enum_name()
         m = pattern.search(chunk)
         enum_name = ''
         if m:
@@ -1060,10 +1056,8 @@ class CppHeaderParser(SyntaxParser):
     def get_methods_in_class(self, clz_name, clz_code, whole_code, pos_line, ignore_deleted=False):
         if not clz_code:
             return None
-
-        clz_code = re.compile("(?s)/\*.*?\*/").sub("", clz_code)
-        clz_code = re.compile("//.*").sub("", clz_code)
-
+        
+        clz_code = self.remove_comment(clz_code)
         method_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line, ignore_deleted)
         method_names = []
 
@@ -1134,10 +1128,10 @@ class CppHeaderParser(SyntaxParser):
         return res
 
     def get_doxy_comment_method_chunks(self, code, clz):
-        return self.get_doxy_comment_chunks(code, clz, self.get_method_name);
+        return self.get_doxy_comment_chunks(code, clz, self.get_method_name)
 
     def get_doxy_comment_enum_chunks(self, code):
-        return self.get_doxy_comment_chunks(code, None, self.get_enum_name);
+        return self.get_doxy_comment_chunks(code, None, self.get_enum_name)
 
     def get_doxy_comment_method_chunks_2(self, code, clz, clz_methods):
         """

@@ -17,12 +17,16 @@ class SearchPatternCpp:
         SearchPatternCpp.patterns['move_const'] = re.compile("{}\s*\((const)*(\s)*{}(\s)*&&(\s)*[\w]*(\s)*\)(\s)*(noexcept)*(\s)*(=)*(\s)*(delete|default)*(\s)*;".format(clz, clz))
         SearchPatternCpp.patterns['move_assign'] = re.compile('(const(\s)*)*{}[\s]*&[\s]*operator[\s]*=[\s]*\((const)*[\s]*{}(\s)*&&(\s)*[\w]*(\s)*\)(\s)*((noexcept)*(\s)*=)*(\s)*[\w]*(\s)*;'.format(clz, clz))
         SearchPatternCpp.patterns['copy_assign'] = re.compile('(const(\s)*)*{}[\s]*&[\s]*operator[\s]*=[\s]*\((const)*[\s]*{}(\s)*&(\s)*[\w]*(\s)*\)(\s)*((noexcept)*(\s)*=)*(\s)*[\w]*(\s)*;'.format(clz, clz))
-        SearchPatternCpp.patterns['destructor'] = re.compile('~{}[\s]*\(\)\s*=\s*delete\s*[\s\n]*;'.format(clz))
+        SearchPatternCpp.patterns['destructor'] = re.compile('~{}[\s]*\(\)'.format(clz))
         #SearchPatternCpp.patterns['method'] = re.compile('(static|virtual)*(const)*\s*[\w\s,<>:~]+\s*\**&*\s*\s*~*(\w)*\s*(=|==)*\s*\([\w\d=,\s&\:<>*]*\)\s*(override|noexcept|const)*(\s*=\s*)*0*(delete)*(\s*=\s*)*(default)*\s*;*')
         SearchPatternCpp.patterns['special'] = re.compile('({}\s*\([\w\s&:*=,<>\"]*\)[\w\s=]*\s*;|operator\s*!*=+\s*\()'.format(clz))
         
     @staticmethod
     def init_default_patterns():
+        SearchPatternCpp.patterns['class_name'] = re.compile('(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        SearchPatternCpp.patterns['class_start'] = re.compile('(enum\s*)*(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
+        SearchPatternCpp.patterns['enum_code_section'] = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*\s*{\s*[\/*<\d\s,\w=|+();:!@#$%^&()-_=+\"\',~`]*}\s*;')
+        SearchPatternCpp.patterns['enum_name'] = re.compile('enum\s+(class\s+)*[\w_]+\s*\:*\s*[\w]*')
         SearchPatternCpp.patterns['singleton'] = re.compile('static\s+[\w]+\s*(\*|&)\s*[\w]+(instance|Instance)\([\w]*\)\s*;')
         SearchPatternCpp.patterns['singleton_ptr'] = re.compile('static\s+[\w]+\s*\*\s*[\w]+(instance|Instance)\([\w]*\)\s*;')
         SearchPatternCpp.patterns['singleton_ptr'] = re.compile('static\s+[\w]+\s*\*\s*[\w]+(instance|Instance)\([\w]*\)\s*;')
@@ -36,6 +40,22 @@ class SearchPatternCpp:
         SearchPatternCpp.patterns['curly_brace'] = re.compile('{[:\w\s~=<>&();]*}')
         SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\(+[\w\s&*<:>=,()\"]*\)+[\w\s=]*')
         SearchPatternCpp.patterns['deleted_method'] = re.compile('=\s*delete[\s\n]*')
+
+    @classmethod
+    def get_pattern_class_name(cls):
+        return 'class_name', cls.patterns['class_name']
+    
+    @classmethod
+    def get_pattern_find_class_start(cls):
+        return 'class_start', cls.patterns['class_start']
+    
+    @classmethod
+    def get_pattern_enum_code_section(cls):
+        return 'enum_code_section', cls.patterns['enum_code_section']
+    
+    @classmethod
+    def get_pattern_enum_name(cls):
+        return 'enum_name', cls.patterns['enum_name']
 
     @classmethod
     def get_pattern_curly_brace(cls):
