@@ -278,18 +278,42 @@ class CppHeaderParser(SyntaxParser):
 
         i = 0
         n = len(clz_code)
-        open_cnt = 0
+
+        # curlybrace_cnt = 0
+        # code = ''
+
+        # while i < n:
+        #     if clz_code[i] == '{':
+        #         curlybrace_cnt += 1
+        #     elif clz_code[i] == '}':
+        #         if curlybrace_cnt:
+        #             code += ';'
+        #         curlybrace_cnt -= 1
+
+        #     if curlybrace_cnt == 0 and clz_code[i] != '}':
+        #         code += clz_code[i]
+            
+        #     i += 1
+
+        # return code
+
+        brace_cnt = 0
+        curlybrace_cnt = 0
         code = ''
 
         while i < n:
-            if clz_code[i] == '{':
-                open_cnt += 1
-            elif clz_code[i] == '}':
-                if open_cnt:
+            if brace_cnt == 0 and clz_code[i] == '{':
+                curlybrace_cnt += 1
+            elif brace_cnt == 0 and clz_code[i] == '}':
+                if curlybrace_cnt and brace_cnt == 0:
                     code += ';'
-                open_cnt -= 1
+                curlybrace_cnt -= 1
+            elif clz_code[i] == '(':
+                brace_cnt += 1
+            elif clz_code[i] == ')':
+                brace_cnt -= 1
 
-            if open_cnt == 0 and clz_code[i] != '}':
+            if curlybrace_cnt == 0 and clz_code[i] != '}':
                 code += clz_code[i]
             
             i += 1
