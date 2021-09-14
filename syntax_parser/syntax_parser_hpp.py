@@ -1237,7 +1237,7 @@ class CppHeaderParser(SyntaxParser):
 
         if return_code:
             return_code = return_code.split()
-            while return_code and return_code[0] in {'virtual'}:
+            while return_code and return_code[0] in {'virtual', 'static'}:
                 return_code.pop(0)
             return_code = ''.join(return_code)
 
