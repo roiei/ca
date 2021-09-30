@@ -987,6 +987,26 @@ class CppHeaderParser(SyntaxParser):
         code.strip()
         return code
     
+    def remove_trailing_semicolon(self, code):
+        i = len(code) - 1
+        while i >= 0:
+            if not (code[i] == ' ' or code[i] == ';'):
+                break
+            i -= 1
+        
+        return code[:i + 1]
+    
+    def remove_heading_useless_letters(self, code):
+        n = len(code)
+        i = 0
+
+        while i < n:
+            if not (code[i] == '\n' or code[i] == ' '):
+                break
+            i += 1
+        
+        return code[i:]
+    
     def remove_comment_in_method(self, code):
         code = self.remove_comment(code)
 
@@ -1000,7 +1020,9 @@ class CppHeaderParser(SyntaxParser):
             sx = m.span()[0]
             ex = m.span()[1]
             code = code[sx:ex].strip()
-
+        
+        code = self.remove_heading_useless_letters(code)
+        code = self.remove_trailing_semicolon(code)
         return code
 
     def check_rules(self, code, report, cfg, rule_coverage="all"):
