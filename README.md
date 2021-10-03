@@ -221,7 +221,7 @@ file: D:\projects\se\ca\test\test.h
 &nbsp;
 
 ### 3. S/W component dependency analysis
-* it analyze all the dependencies of each S/W component in the given path
+* it analyzes all the dependencies of each S/W component in the given path
 * and then 
   * 1) create dependency graph of components
   * 2) show stability of each component node by calculating fan-in and fan-out
