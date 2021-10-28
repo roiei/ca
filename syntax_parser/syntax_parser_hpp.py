@@ -1278,38 +1278,65 @@ class CppHeaderParser(SyntaxParser):
 
         return res, errs
     
-    def __doxygen_split_lines(self, enum_value_lines):
-        items = enum_value_lines.split('\n')
-        items = [item.strip() for item in items]
+    def get_num_str(self, str):
+        str = str.strip()
+        for delimeter in ['=', '\n', ',']:
+            if -1 != str.find(delimeter):
+                str = str[:str.find(delimeter)]
+        return str
+    
+    def __doxygen_split_lines(self, code):
         lines = []
+        i = len(code) - 1
+        start, end = -1, -1
 
-        i = 0
-        while i < len(items):
-            line = ''
-            if -1 == items[i].find('/**<'):
-                if i + 1 < len(items) and items[i + 1].startswith('/*'):
-                    line += items[i]
-                    i += 1
+        comment_pos = []
+        for pattern in ["(?s)/\*.*?\*/", "//.*"]:
+            pattern = re.compile(pattern)
 
-                lines += line + items[i],
-                i += 1
+            m = re.finditer(pattern, code)
+            m = list(m)
+            
+            for item in m:
+                start, end = item.span()[0], item.span()[1]
+                comment_pos += (start, end),
+        
+        if comment_pos:
+            start, end = comment_pos.pop()
+        line = ''
+        comment_inc = False
+
+        while i >= 0:
+            if i == end:
+                lines.insert(0, line[::-1].strip())
+                line = ''
+
+                line += code[start: end + 1][::-1]
+                comment_inc = True
+                i = start - 1
+                if comment_pos:
+                    start, end = comment_pos.pop()
                 continue
 
-            while i < len(items) and -1 == items[i].rfind('*/'):
-                line += items[i]
-                i += 1
+            if code[i] == ',' and not comment_inc:
+                lines.insert(0, line[::-1].strip())
+                line = ''
+                i -= 1
             
-            if i < len(items):
-                line += items[i]
+            if code[i] == ',' and comment_inc:
+                comment_inc = False
+                i -= 1
 
-            lines += line,
-            i += 1
+            line += code[i]
+            i -= 1
         
-        for i in range(len(lines)):
-            lines[i] = lines[i].replace('\\n', '')
+        lines.insert(0, line[::-1].strip())
+        # for line in lines:
+        #     print('------')
+        #     print(line)
 
         return lines
-
+    
     def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line, cfg):
         errs = []
         sx = enum_code.find('{')
@@ -1318,7 +1345,7 @@ class CppHeaderParser(SyntaxParser):
         enum_code = enum_code[sx + 1:ex]
 
         guard_keywords = set(cfg.get_enum_guard_keywords())
-        lines = self.__doxygen_split_lines(enum_code)
+        chunks = self.__doxygen_split_lines(enum_code)
 
         patterns = [
             # todo
@@ -1327,30 +1354,32 @@ class CppHeaderParser(SyntaxParser):
             ('///', '', re.compile('\/\/\/[\w\s\.[=\]\-_:;()\'\"\/,\>\<!@#$%^~&*`+?]*'))     # used in single line (so removed \n)
         ]
 
-        for i, line in enumerate(lines):
-            if not line:
+        for i, chunk in enumerate(chunks):
+            if not chunk:
                 continue
-
-            wo_comment = self.remove_comment(line)
+        
+            wo_comment = self.remove_comment(chunk)
             wo_comment = list(filter(lambda p: p.strip() != '', wo_comment.split(',')))
+            #print('wo_comment = ', wo_comment)
+
             if len(wo_comment) > 1:
-                errs += (offset_lines + enum_line + 1 + i, '\'' + line + '\'' + \
+                errs += (offset_lines + enum_line + 1 + i, '\'' + chunk + '\'' + \
                     ': values are defiend in one line'),
                 continue
-
+        
             comment = None
-            ex = line.find(',')
-            enum_val = line[:] if -1 == ex else line[:ex]
-            enum_val = self.remove_comment(enum_val)
+            enum_val = chunk
 
             for start_patt, end_patt, pattern in patterns:
-                m = pattern.search(line)
+                m = pattern.search(chunk)
                 if not m:
                     continue
 
                 sx = m.span()[0]
                 ex = m.span()[1]
-                comment = line[sx:ex + 1]
+                comment = chunk[sx:ex + 1]
+                enum_val = chunk[:sx]
+
                 sx, ex = 0, 0
                 if comment.startswith(start_patt):
                     sx = comment.find(start_patt) + len(start_patt)
@@ -1362,12 +1391,17 @@ class CppHeaderParser(SyntaxParser):
                 if comment[sx] == '<':
                     sx += 1
                 comment = comment[sx:ex].strip()
+            
+            enum_val = self.get_num_str(enum_val)
+
+            # print('enum = ', enum_val)
+            # print('commt = ', comment)
 
             if (not comment and enum_val) and enum_val not in guard_keywords:
-                errs += (offset_lines + enum_line + i, '\'' + line + '\'' + \
+                errs += (offset_lines + enum_line + i, '\'' + chunk + '\'' + \
                     'is not documented'),
 
-        return len(lines), errs
+        return len(chunks), errs
 
     def get_code(self, file):
         lines = []
