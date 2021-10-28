@@ -1287,7 +1287,11 @@ class CppHeaderParser(SyntaxParser):
         while i < len(items):
             line = ''
             if -1 == items[i].find('/**<'):
-                lines += items[i],
+                if i + 1 < len(items) and items[i + 1].startswith('/*'):
+                    line += items[i]
+                    i += 1
+
+                lines += line + items[i],
                 i += 1
                 continue
 
@@ -1321,7 +1325,7 @@ class CppHeaderParser(SyntaxParser):
             # \/\*(\*|!)[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/
             ('/**', '*/', re.compile("\/\*\*[\w\s\.[=\]\-_:;()'\"\/!@#$%,\>\<^~&*`+?]*\*\/")),
             ('///', '', re.compile('\/\/\/[\w\s\.[=\]\-_:;()\'\"\/,\>\<!@#$%^~&*`+?]*'))     # used in single line (so removed \n)
-        ] 
+        ]
 
         for i, line in enumerate(lines):
             if not line:
