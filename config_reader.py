@@ -93,6 +93,12 @@ class Config:
     def is_deleted_method_ignorable(self):
         return self.cfg['ignore_deleted_method']
     
+    def set_doxy_start_pattern(self, onoff):
+        self.cfg['doxy_start_pattern'] = onoff
+    
+    def get_doxy_start_pattern(self):
+        return self.cfg['doxy_start_pattern']
+    
     def set_enum_cfg(self, enum_cfg):
         self.cfg['enum_cfg'] = enum_cfg
 
@@ -164,5 +170,10 @@ class ConfigReader:
         if 'doxygen' in cfg_json:
             if 'ignore_deleted_method' in cfg_json['doxygen']:
                 cfg.set_ignore_deleted_method(cfg_json['doxygen']['ignore_deleted_method'])
+        
+        if 'doxygen' in cfg_json:
+            if 'doxy_start_pattern' in cfg_json['doxygen']:
+                cfg.set_doxy_start_pattern(cfg_json['doxygen']['doxy_start_pattern'])
+
 
         return cfg

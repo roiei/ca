@@ -143,7 +143,7 @@ class DependencyAnalysisHandler(Cmd):
         self.calc_stability(graph)
 
         # print('+traverse')
-        # self.traverse_graphs(graph)
+        self.traverse_graphs(graph)
         # print()
         # self.dump(graph)
         # sys.exit()
@@ -170,8 +170,8 @@ class DependencyAnalysisHandler(Cmd):
 
         if 'graph' in opts and opts['graph'] == 'True':
             if 'node' in opts and opts['node']:
-                trace = NetworkX.get_trace(graph, 'systemuimanager')
-                self.traverse_graphs(graph, ['systemuimanager'])
+                trace = NetworkX.get_trace(graph, opts['node'])
+                self.traverse_graphs(graph, [opts['node']])
 
                 for uid, vid, attr in color_edges:
                     attr['color'] = 'red' if (id_to_node[uid], id_to_node[vid]) in trace else 'white'
@@ -235,7 +235,8 @@ class DependencyAnalysisHandler(Cmd):
             tot += 1
             color_edges += (uid, vid, {'color': color}),
         
-        print(' * number of violations = {} / {} ({:.2f}%)'.format(cnt, tot, cnt/tot*100))
+        if tot > 0:
+            print(' * number of violations = {} / {} ({:.2f}%)'.format(cnt, tot, cnt/tot*100))
         return color_edges, node_to_id, id_to_node, violations
     
     def get_api_module_names(self, g):
@@ -334,6 +335,10 @@ class DependencyAnalysisHandler(Cmd):
                 #if v.type in {'APP', 'SVC', 'LIB'}:
                 if v.type in {'APP', 'SVC'}:
                     nodes += k,
+        
+        for k, v in g.items():
+            print(k, " type = ", v.type)
+        #sys.exit()
 
         inbound = collections.defaultdict(int)
         for u in g:
@@ -350,6 +355,9 @@ class DependencyAnalysisHandler(Cmd):
 
         while q:
             u, depth = q.pop()
+            if depth > 7:
+                continue
+
             print((1 if depth else 0)*' +', \
                 depth*'--+', (1 if depth else 0)*'>', u, \
                 ' in ({}), out ({}), I = {:.3f}'.format(
@@ -357,7 +365,7 @@ class DependencyAnalysisHandler(Cmd):
                     len(g[u].fan_outs),
                     g[u].instability))
 
-            if 0 == cur_inbound[u] and u != node:
+            if 0 >= cur_inbound[u] and u != node:
                 continue
 
             if cur_inbound[u]:

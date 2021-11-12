@@ -9,7 +9,8 @@ class CMakeBuildScriptParser:
     types = {
         "APP_NAME": ("APP", 2),         # app module level
         "LIB_NAME": ("LIB", 3),         # API module level
-        "SERVICE_NAME": ("SVC", 4)      # SVC module level
+        "SERVICE_NAME": ("SVC", 4),     # SVC module level
+        "service": ("SVC", 4)
     }
 
     cfg = None
@@ -78,14 +79,26 @@ class CMakeBuildScriptParser:
         if sx != -1 and sx < ex:
             line = line[sx + 1: ex]
         words = line.split()
+        type_str = ''
         try:
-            type_str, name = words
+            if words and len(words) == 1:
+                name = words[0]
+            else:
+                type_str, name = words
         except ValueError:
+            print('Exit...')
             print(url)
             print(line)
             print(words)
             sys.exit()
-
+        
+        def parse_type_from_url(url):
+            chunks = url.split('.')
+            for chunk in chunks:
+                if chunk in ['service']:
+                    return chunk
+            return ''
+        
         type_str = type_str.strip()
         name = name.strip()
 
@@ -94,10 +107,10 @@ class CMakeBuildScriptParser:
             return
 
         type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
-        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
-        if not type:
-            #print('name {}: cannot find type {}'.format(name, type_str))
-            return
+        
+        if not type_str or not type:
+            type_str = parse_type_from_url(url.split(PlatformInfo.get_delimiter())[-2])
+            type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
 
         res_name = name
         if name.startswith('$'):
@@ -120,6 +133,9 @@ class CMakeBuildScriptParser:
         ex = line.rfind(')')
         content = line[sx + 1:ex].split()
         filtered = []
+
+
+        print(content)
 
         for item in content:
             if item in {'${LIB_NAME}', 'PRIVATE', 
@@ -146,12 +162,15 @@ class CMakeBuildScriptParser:
 
             g[param].fan_outs.add(item)
 
-        #print(filtered)
-        #print(param, ' = ', g[param].fan_outs)
+        print(filtered)
+        print(param, ' = ', g[param].fan_outs)
 
     pattern_handlers = {
         'dependency':
-            ('target_link_libraries\s*\([\w$\s{}+]*\)',
+            ('target_link_libraries\s*\([\w$\s{}+_]*\)',
+            _parse_dependency.__func__),
+        'dependency':
+            ('link_directories\s*\([\w$\s{}+_]*\)',
             _parse_dependency.__func__)
     }
 
@@ -162,17 +181,18 @@ class CMakeBuildScriptParser:
         """
             add output module to the given graph
         """
-        pattern = re.compile('set\([A-Z_]+\s+[._${}\w]+\)')
-        m = pattern.finditer(content)
-        for r in m:
-            span = r.span()
-            #print(content[span[0]:span[1]])
-            res = self._parse_outputname(
-                content[span[0]:span[1]], g, url, content)
+        for patt in ['project\s*\(\s*[a-zA-Z_]+\s*\)', 'set\([A-Z_]+\s+[._${}\w]+\)']:
+            pattern = re.compile(patt)
+            m = pattern.finditer(content)
+            for r in m:
+                span = r.span()
+                #print(content[span[0]:span[1]])
+                res = self._parse_outputname(
+                    content[span[0]:span[1]], g, url, content)
 
-            if '' != res and None != res:
-                return res
-
+                if '' != res and None != res:
+                    return res
+        
         return ''
 
     def build_dep_graph(self, url):
@@ -182,14 +202,15 @@ class CMakeBuildScriptParser:
 
         g = collections.defaultdict(ModuleInfo)
         oname = self.add_output_module(g, content, url)
-
-        #print('cmake = ', oname)
+        print('cmake = ', oname)
+        print(url)
 
         if '' == oname:
-            #print('UNDEF: url = ', url)
+            print('UNDEF: url = ', url)
             return
-
+        
         for pname, value in CMakeBuildScriptParser.pattern_handlers.items():
+            print('---')
             pattern_str, _handler = value
             pattern = re.compile(pattern_str)
 
@@ -198,6 +219,7 @@ class CMakeBuildScriptParser:
                 span = r.span()
                 name = _handler(content[span[0]:span[1]], g, oname, url)
         
+        print('===')
         return g
     
     def replace_macro_dep(self, g, module_infos):

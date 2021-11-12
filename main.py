@@ -55,7 +55,7 @@ cmd_handlers = {
     ),
     'dependency': (
         DependencyAnalysisHandler(),
-        '--cmd=dependency --path=./ --prj=prj  [--graph=True]'
+        '--cmd=dependency --path=./ --prj=prj  [--graph=True] [--node=node_name]'
     ),
     'call_dependency': (
         CallDependencyAnalysisHandler(),

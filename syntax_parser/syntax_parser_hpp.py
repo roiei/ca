@@ -987,6 +987,29 @@ class CppHeaderParser(SyntaxParser):
         code.strip()
         return code
     
+    def keep_only_doxygen_comment(self, code, doxy_start_patts):
+        sections = []
+        for pattern in ["(?s)/\*.*?\*/", "//.*"]:
+            pattern = re.compile(pattern)
+
+            m = re.finditer(pattern, code)
+            m = list(m)
+            
+            for item in m:
+                start, end = item.span()[0], item.span()[1]
+
+                for doxy_start_patt in ['/**', '///']:
+                    if code[start:end + 1].startswith(doxy_start_patt):
+                        break
+                else:
+                    sections += (start, end),
+        
+        out = list(code)
+        for start, end in sections[::-1]:
+            out[start:end + 1] = ''
+
+        return ''.join(out)
+    
     def remove_trailing_semicolon(self, code):
         i = len(code) - 1
         while i >= 0:
@@ -1302,7 +1325,9 @@ class CppHeaderParser(SyntaxParser):
                 comment_pos += (start, end),
         
         if comment_pos:
-            start, end = comment_pos.pop()
+            comment_pos.sort(key=lambda p: p[0])
+            start, end = comment_pos.pop() # update end
+
         line = ''
         comment_inc = False
 
@@ -1345,6 +1370,9 @@ class CppHeaderParser(SyntaxParser):
         enum_code = enum_code[sx + 1:ex]
 
         guard_keywords = set(cfg.get_enum_guard_keywords())
+
+        enum_code = enum_code.replace('\\n', '')
+        enum_code = self.keep_only_doxygen_comment(enum_code, cfg.get_doxy_start_pattern())
         chunks = self.__doxygen_split_lines(enum_code)
 
         patterns = [
