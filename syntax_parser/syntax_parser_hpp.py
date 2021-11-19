@@ -1297,7 +1297,9 @@ class CppHeaderParser(SyntaxParser):
 
         if errs:
             mn = min([line for line, msg in errs])
-            errs.insert(0, (mn - 1, 'method: {}'.format(func_code)))
+            for i in range(len(errs)):
+                errs[i] = (mn - 1, 'method: {}\n\t\t\t '.format(func_code) + errs[i][1])
+            res = RetType.ERROR
 
         return res, errs
     

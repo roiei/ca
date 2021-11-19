@@ -17,10 +17,10 @@ class DoxygenErrorStats:
     def __init__(self):
         self.tot_method = 0
         self.err_method = 0
-        self.num_items = 0
-        self.num_errs = 0
-        self.num_module_err = collections.defaultdict(int)
-        self.num_module_item = collections.defaultdict(int)
+        self.num_items = 0      # total number of items to check
+        self.num_errs = 0       # total number of errors
+        self.num_module_err = collections.defaultdict(int)   # total number of errors of a file module
+        self.num_module_item = collections.defaultdict(int)  # total number of items of a file module to check
 
 
 class DoxygenVerificationHandler(Cmd):
@@ -76,7 +76,7 @@ class DoxygenVerificationHandler(Cmd):
                         print('Not supported rule.')
                         continue
 
-                    self.rules[rule](parsers[file_type], directory, file, whole_code, \
+                    stat.num_items += self.rules[rule](parsers[file_type], directory, file, whole_code, \
                         pos_line, dir_errs, stat, err_stats, cfg)
 
             num_err = sum(freq for file, clzs in err_stats[directory].items() \
@@ -86,6 +86,8 @@ class DoxygenVerificationHandler(Cmd):
                 self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
                 self.print_detail_err_info(directory, err_stats, dir_errs)
             tot_err += num_err
+
+        stat.num_errs = tot_err
 
         if tot_err:
             self.print_doxy_analysis_dir_stats(err_stats, stat, 'each')
@@ -101,6 +103,7 @@ class DoxygenVerificationHandler(Cmd):
     
     def __check_enum(self, parser, directory, file, whole_code, pos_line, dir_errs, \
             stat, err_stats, cfg):
+        num_items = 0
         non_clz_code = parser.get_non_class_code(whole_code)
         enum_codes = parser.get_enum_codes(non_clz_code, whole_code, pos_line)
 
@@ -115,26 +118,27 @@ class DoxygenVerificationHandler(Cmd):
                 dir_errs[file][''] += (line, 'enum: {} is not documented'.format(name)),
                 err_stats[directory][file][''] += 1
                 num_not_doc += 1
-            stat.num_items += 1
-            stat.num_module_item[directory] += 1
+            num_items += 1
+            stat.num_module_item[directory] += 1    # comment @ enum header
 
-        stat.num_errs += num_not_doc
         stat.num_module_err[directory] += num_not_doc
         
         for name, code, line in enum_codes:
-            num_lines, errs = parser.verify_doxycomment_enum(\
+            num_chunks, errs = parser.verify_doxycomment_enum(\
                 code, line, whole_code, pos_line, cfg)
             dir_errs[file][''] += errs
             err_stats[directory][file][''] += len(errs)
 
-            num_item = max(num_lines, len(errs))
-            stat.num_items += num_item
-            stat.num_module_item[directory] += num_item
-            stat.num_errs += len(errs)
+            num_item = max(num_chunks, len(errs))
+            num_items += num_item
+            stat.num_module_item[directory] += num_item  # comment for each line(chunk)
             stat.num_module_err[directory] += len(errs)
+        
+        return num_items
     
     def __check_method(self, parser, directory, file, whole_code, pos_line, dir_errs, \
             stat, err_stats, cfg):
+        num_items = 0
         clz_idxs, clz_codes = parser.get_each_class_code(whole_code)
 
         for clz, code in clz_codes.items():
@@ -147,15 +151,9 @@ class DoxygenVerificationHandler(Cmd):
             for line, comment_code, method_name in comment_codes:
                 commented_methods.add(parser.remove_comment_in_method(comment_code))
             
-            # print('commented methods')
-            # print(commented_methods)
-            # print('all_method')
-            # for m in all_methods:
-            #     print(m)
-
             num_no_commented = 0
             for method, method_code, line, num_sig in all_methods:
-                stat.num_items += num_sig
+                num_items += num_sig
                 stat.num_module_item[directory] += num_sig
                 if method_code not in commented_methods:
                     dir_errs[file][clz] += (line, 'method: {} is not documented'.format(method)),
@@ -164,7 +162,6 @@ class DoxygenVerificationHandler(Cmd):
             stat.num_module_item[directory] += len(all_methods)
             stat.tot_method += len(all_methods)
             stat.err_method += num_no_commented
-            stat.num_errs += num_no_commented
             stat.num_module_err[directory] += num_no_commented
 
             err_stats[directory][file][clz] += num_no_commented
@@ -182,12 +179,13 @@ class DoxygenVerificationHandler(Cmd):
                     dir_errs[file][clz] += errs
 
                 if errs:
-                    err_stats[directory][file][clz] += \
-                        max(len(errs) - 1, 0)
+                    num_err = len(errs)
+                    err_stats[directory][file][clz] += num_err
                     stat.err_method += 1
-                    stat.num_module_item[directory] += max(1, len(errs) - 1)
-                    stat.num_errs += max(len(errs) - 1, 0)
-                    stat.num_module_err[directory] += max(len(errs) - 1, 0)
+                    stat.num_module_item[directory] += max(1, num_err)
+                    stat.num_module_err[directory] += num_err
+        
+        return num_items
 
     def print_detail_err_info(self, directory, err_stats, dir_errs):
         for file, clzs in err_stats[directory].items():
