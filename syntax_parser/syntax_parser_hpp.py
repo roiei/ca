@@ -434,8 +434,23 @@ class CppHeaderParser(SyntaxParser):
 
     def __get_param_pos(self, text):
         n = len(text)
-        i = n - 1
+        
+        # ignore until :
+        trim_pos = n - 1
+        m = re.finditer(re.compile(':'), text)
+        m = list(m)
 
+        for item in m:
+            spos, _ = item.span()[0], item.span()[1]
+            if not ((spos - 1 >= 0 and text[spos - 1] == ':') or 
+                    (spos + 1 < n and text[spos + 1] == ':')):
+                trim_pos = spos - 1
+                break
+        
+        i = n - 1
+        if trim_pos != n - 1:
+            i = trim_pos
+        
         while i >= 0:
             if text[i] == ')':
                 break
@@ -528,6 +543,9 @@ class CppHeaderParser(SyntaxParser):
         res = True
 
         for param in params:
+            if '...' == param:
+                continue
+
             param = param.split('=')[0].split()[-1]
             pos = 0
             for i in range(len(param) - 1, -1, -1):
@@ -579,7 +597,6 @@ class CppHeaderParser(SyntaxParser):
         errs = []
         params = self.__split_param(func_code)
         ret = self.__split_return(func_code, 'None')
-
         ret_var, code_param = self.__get_variable_name(params)
         code_params += code_param
         if not ret_var:
@@ -598,8 +615,8 @@ class CppHeaderParser(SyntaxParser):
             return None
 
         access_mod = collections.defaultdict(list)
-        pname, pattern = SearchPatternCpp.get_pattern_methods()
-        if not pattern:
+        pname, pattern_method = SearchPatternCpp.get_pattern_methods()
+        if not pattern_method:
             print('ERROR: pattern for {} is not found'.format(pname))
             return
         
@@ -629,13 +646,21 @@ class CppHeaderParser(SyntaxParser):
                 continue
 
             expr = expr.strip()
-            m = pattern.search(expr)
+
+            m = pattern_method.search(expr)
             if m:
                 sx = m.span()[0]
                 ex = m.span()[1]
                 expr = expr[sx:ex].strip()
 
-                if not ignore_deleted and delete_pattern.search(expr):
+                # print('expr2 = ', expr)
+                # print('ignore_deleted = ', ignore_deleted)
+                # print('delete_pattern.search(expr) = ', delete_pattern.search(expr))
+                # print()
+
+                delete_found = delete_pattern.search(expr)
+
+                if (not ignore_deleted and delete_found) or not delete_found:
                     if pos_line:
                         pos = whole_code.find(expr)
                         line = self.find_line(pos_line, pos)
@@ -931,6 +956,8 @@ class CppHeaderParser(SyntaxParser):
         return res if res else {"violate_modularity": True}
 
     def get_method_name(self, method):
+        #print('method = ', method)
+        method = self.remove_comment(method)
         sx, ex = self.__get_param_pos(method)
         if -1 == sx:
             return ''
@@ -1126,16 +1153,22 @@ class CppHeaderParser(SyntaxParser):
         if not clz_code:
             return None
         
-        clz_code = self.remove_comment(clz_code)
-        method_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line, ignore_deleted)
+        clz_code = self.remove_comment(clz_code)        
+        attr_infos = self.__get_class_methods_attrs(clz_name, clz_code, whole_code, pos_line, ignore_deleted)
         method_names = []
 
-        for acc, methods in method_infos.items():
-            for method_code, params, ret, line in methods:
-                method_name = self.get_method_name(method_code)
+        for acc, attrs in attr_infos.items():
+            for attr_code, params, ret, line in attrs:
+                chunks = acc.split()
+                acc_modifier = chunks[0]
+                type = chunks[1]
+                if 'attribute' == type:
+                    continue
+
+                method_name = self.get_method_name(attr_code)
                 if '' != method_name:
                     num_signatures = len(params) + 1 if params else 0
-                    method_names += (method_name, method_code, line, num_signatures),
+                    method_names += (acc_modifier, method_name, attr_code, line, num_signatures),
 
         return method_names
 

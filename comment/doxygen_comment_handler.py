@@ -78,9 +78,11 @@ class DoxygenVerificationHandler(Cmd):
 
                     stat.num_items += self.rules[rule](parsers[file_type], directory, file, whole_code, \
                         pos_line, dir_errs, stat, err_stats, cfg)
-
-            num_err = sum(freq for file, clzs in err_stats[directory].items() \
-                for clz, freq in clzs.items())
+            
+            num_err = 0
+            for file, clzs in err_stats[directory].items():
+                for clz, num in clzs.items():
+                    num_err += num
 
             if num_err:
                 self.print_doxy_analysis_stats(directory, dir_errs, directory, num_err)
@@ -152,7 +154,9 @@ class DoxygenVerificationHandler(Cmd):
                 commented_methods.add(parser.remove_comment_in_method(comment_code))
             
             num_no_commented = 0
-            for method, method_code, line, num_sig in all_methods:
+            for acc_mod, method, method_code, line, num_sig in all_methods:
+                if acc_mod in ['private']:
+                    continue
                 num_items += num_sig
                 stat.num_module_item[directory] += num_sig
                 if method_code not in commented_methods:
@@ -241,8 +245,7 @@ class DoxygenVerificationHandler(Cmd):
             col_widths, cols, rows)
 
     def print_doxy_analysis_dir_stats(self, err_stats, stat, title=''):
-        cols = ['pkg', '# err classes', '# errs (%)', '# items']
-        #cols = ['dir name', 'class name', '# err']
+        cols = ['pkg', '# classes', '# errs (%)', '# items']
         rows = []
         col_widths = [35, 14, 16, 12]
 
