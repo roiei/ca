@@ -99,6 +99,12 @@ class Config:
     def get_doxy_start_pattern(self):
         return self.cfg['doxy_start_pattern']
     
+    def set_ignore_acc_mod(self, acc_mods):
+        self.cfg['igore_comment_in_acc_mod'] = acc_mods
+    
+    def get_ignore_acc_mod(self):
+        return self.cfg['igore_comment_in_acc_mod']
+    
     def set_enum_cfg(self, enum_cfg):
         self.cfg['enum_cfg'] = enum_cfg
 
@@ -174,6 +180,9 @@ class ConfigReader:
         if 'doxygen' in cfg_json:
             if 'doxy_start_pattern' in cfg_json['doxygen']:
                 cfg.set_doxy_start_pattern(cfg_json['doxygen']['doxy_start_pattern'])
-
+        
+        if 'doxygen' in cfg_json:
+            if 'igore_comment_in_acc_mod' in cfg_json['doxygen']:
+                cfg.set_ignore_acc_mod(cfg_json['doxygen']['igore_comment_in_acc_mod']) 
 
         return cfg

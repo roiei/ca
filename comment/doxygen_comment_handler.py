@@ -163,7 +163,7 @@ class DoxygenVerificationHandler(Cmd):
             #         items_err += 1
             
             for acc_mod, method, method_code, line, num_sig in all_methods:
-                if acc_mod in ['private']:
+                if acc_mod in cfg.get_ignore_acc_mod():
                     continue
                 items_to_check += num_sig
                 if method_code not in commented_methods:
