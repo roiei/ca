@@ -784,7 +784,10 @@ class CppHeaderParser(SyntaxParser):
             for record in records:
                 expr, params, ret, line = record
                 res = pattern_smf.search(expr + ';')
-                if res:
+
+                method_name = self.get_method_name(expr)
+                if (clz in method_name and (clz == method_name or '~' + clz == method_name)) \
+                        or (clz not in method_name and res):
                     func_types += [expr, line, False],
                 else:
                     if func_types and func_types[-1]:
