@@ -954,16 +954,31 @@ class CppHeaderParser(SyntaxParser):
                     res["violate_raw_ptr" + " -> {}".format(expr)] = False
 
         return res if res else {"violate_modularity": True}
+    
+    def is_valid_method_name(self, code):
+        bracket_cnt = 0
+        n = len(code)
+        i = 0
 
+        while i < n:
+            if code[i] == '<':
+                bracket_cnt += 1
+            elif code[i] == '>':
+                bracket_cnt -= 1
+            i += 1
+        
+        if 0 != bracket_cnt:
+            return False
+        return True
+    
     def get_method_name(self, method):
-        #print('method = ', method)
         method = self.remove_comment(method)
         sx, ex = self.__get_param_pos(method)
         if -1 == sx:
             return ''
 
         method_name = method[:sx]
-        if not method_name:
+        if not method_name or not self.is_valid_method_name(method_name):
             return ''
 
         method_chunks = method_name.split()
@@ -1162,6 +1177,7 @@ class CppHeaderParser(SyntaxParser):
                 chunks = acc.split()
                 acc_modifier = chunks[0]
                 type = chunks[1]
+
                 if 'attribute' == type:
                     continue
 
@@ -1212,14 +1228,16 @@ class CppHeaderParser(SyntaxParser):
         num_pos = len(pos_line)
 
         for i in range(len(method_m)):
-            end_pos = method_m[i].span()[1]
-            while pos + 1 < num_pos and pos_line[pos][0] < end_pos:
-                pos += 1
-
             comment_start = method_m[i].span()[0]
             comment_end = method_m[i].span()[1]
+            while pos + 1 < num_pos and pos_line[pos][0] < comment_end:
+                pos += 1
 
             end = code[comment_end:].find(';')
+
+            if i + 1 < len(method_m) and method_m[i + 1].span()[0] <= comment_end + end:
+                end = method_m[i + 1].span()[0] - comment_end
+
             chunk_code = code[comment_start:end + comment_end + 1]
 
             if get_name:

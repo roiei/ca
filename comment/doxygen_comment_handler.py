@@ -153,22 +153,27 @@ class DoxygenVerificationHandler(Cmd):
             for line, comment_code, method_name in comment_codes:
                 commented_methods.add(parser.remove_comment_in_method(comment_code))
             
-            num_no_commented = 0
+            items_err = 0
+            items_to_check = 0
+
+            # method_codes = set([method_code for acc_mod, method, method_code, line, num_sig in all_methods])
+            # for commented_method in commented_methods:
+            #     if comment_code not in method_codes:
+            #         dir_errs[file][clz] += (line, 'check code around method: {}'.format(commented_method)),
+            #         items_err += 1
+            
             for acc_mod, method, method_code, line, num_sig in all_methods:
                 if acc_mod in ['private']:
                     continue
-                num_items += num_sig
-                stat.num_module_item[directory] += num_sig
+                items_to_check += num_sig
                 if method_code not in commented_methods:
                     dir_errs[file][clz] += (line, 'method: {} is not documented'.format(method)),
-                    num_no_commented += 1
+                    items_err += 1
 
-            stat.num_module_item[directory] += len(all_methods)
-            stat.tot_method += len(all_methods)
-            stat.err_method += num_no_commented
-            stat.num_module_err[directory] += num_no_commented
-
-            err_stats[directory][file][clz] += num_no_commented
+            num_items += items_to_check
+            err_stats[directory][file][clz] += items_err
+            self.update_stat(stat, err_stats, directory, len(all_methods) + items_to_check, 
+                len(all_methods), items_err, items_err)
 
             if not comment_codes:
                 continue
@@ -185,11 +190,18 @@ class DoxygenVerificationHandler(Cmd):
                 if errs:
                     num_err = len(errs)
                     err_stats[directory][file][clz] += num_err
-                    stat.err_method += 1
-                    stat.num_module_item[directory] += max(1, num_err)
-                    stat.num_module_err[directory] += num_err
+                    self.update_stat(stat, err_stats, directory, max(1, num_err), 
+                        0, 
+                        1,  # need to check the method is already checked
+                        num_err)
         
         return num_items
+    
+    def update_stat(self, stat, err_stats, directory, num_items, num_methods, num_err_method, num_errs):
+        stat.num_module_item[directory] += num_items
+        stat.tot_method += num_methods
+        stat.err_method += num_err_method
+        stat.num_module_err[directory] += num_errs
 
     def print_detail_err_info(self, directory, err_stats, dir_errs):
         for file, clzs in err_stats[directory].items():
@@ -205,6 +217,7 @@ class DoxygenVerificationHandler(Cmd):
                 if not errs:
                     continue
                 print('\tclass: ', clz)
+                errs.sort(key=lambda p: p[0])
                 for line, err in errs:
                     log_msg = err
                     if -1 != line:
