@@ -563,19 +563,24 @@ class CppHeaderParser(SyntaxParser):
         return res, vars
 
     def __get_doxy_patterns(self, code, patterns):
-        doxy_params = []
+        doxy_param_names = []
         for line in code:
             for param_type, param_pattern in patterns.items():
                 m = re.search(param_pattern, line)
                 if m:
-                    line = line[m.end():].replace(':', ' ')    
-                    idx = line.find('\n')
-                    line = line[:idx]
-                    param = line.split()[0].replace(',', '')
-                    param = param.strip()
-                    doxy_params += param,
+                    code_line = line[:]
+                    code_line = code_line[m.end():].replace(':', ' ')    
+                    idx = code_line.find('\n')
+                    code_line = code_line[:idx]
 
-        return doxy_params
+                    if not code_line:
+                        continue
+                    
+                    param_name = code_line.split()[0].replace(',', '')
+                    param_name = param_name.strip()
+                    doxy_param_names += param_name,
+
+        return doxy_param_names
 
     def __get_func_code(self, code):
         errs = []
@@ -771,6 +776,15 @@ class CppHeaderParser(SyntaxParser):
         """
         OUT
             {"pattern1":False, "pattern2":True, ...}
+
+            case 1 w/ regular member function after special member function
+            ...
+            [special member function, line, True]  <- marked 'True'
+            [None] <- regular one
+
+            case 2 special member function at the bottom of class
+            ...
+            [special member function, line, False]
         """
         done = collections.defaultdict(bool)
         pname, pattern_smf = SearchPatternCpp.get_special_member_functions()
@@ -779,6 +793,9 @@ class CppHeaderParser(SyntaxParser):
         for attr, records in clz_methods.items():
             mod, mem_type = attr.split()
             if mem_type != 'method':
+                continue
+
+            if 'public' != mod:
                 continue
 
             for record in records:
