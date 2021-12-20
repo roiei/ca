@@ -19,7 +19,7 @@ class SearchPatternCpp:
         SearchPatternCpp.patterns['copy_assign'] = re.compile('(const(\s)*)*{}[\s]*&[\s]*operator[\s]*=[\s]*\((const)*[\s]*{}(\s)*&(\s)*[\w]*(\s)*\)(\s)*((noexcept)*(\s)*=)*(\s)*[\w]*(\s)*;'.format(clz, clz))
         SearchPatternCpp.patterns['destructor'] = re.compile('~{}[\s]*\(\)'.format(clz))
         #SearchPatternCpp.patterns['method'] = re.compile('(static|virtual)*(const)*\s*[\w\s,<>:~]+\s*\**&*\s*\s*~*(\w)*\s*(=|==)*\s*\([\w\d=,\s&\:<>*]*\)\s*(override|noexcept|const)*(\s*=\s*)*0*(delete)*(\s*=\s*)*(default)*\s*;*')
-        SearchPatternCpp.patterns['special'] = re.compile('({}\s*\([\w\s&:*=,<>\"]*\)[\w\s=]*\s*;|operator\s*!*=+\s*\()'.format(clz))
+        SearchPatternCpp.patterns['special'] = re.compile('({}\s*\([\w\s&:*=,<>\"]*\)[\w\s=]*\s*;|operator\s*!*<*>*=*\s*\()'.format(clz))
         
     @staticmethod
     def init_default_patterns():
