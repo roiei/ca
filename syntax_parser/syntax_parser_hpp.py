@@ -33,6 +33,7 @@ class CppHeaderParser(SyntaxParser):
         if None == self.cfg_json:
             sys.exit('wrong configuration file!')
         self.ignore_class_name = self.cfg_json['ignore_class_name']
+        self.modifiers = set(self.cfg_json['modifiers'])
         self.rule_funcs = {
             "rof": self.__check_rof,
             "smf_pos": self.__check_smf_pos,
@@ -374,8 +375,20 @@ class CppHeaderParser(SyntaxParser):
             expr = self.__remove_whitespace_between_delimeter(expr, opn, close)
 
         return expr
+    
+    def __remove_modifier(self, expr):
+        expr = expr.split()
+        while expr and expr[0] in self.modifiers:
+            expr.pop(0)
+        expr = ''.join(expr)
+        return expr
 
     def __split_return(self, func_expr, clz):
+        """
+        return
+            return includes modifier
+            if you don't need to include modifier, call _remove_modifier
+        """
         expr = self.__remove_whitespace_between_brace(func_expr)
         i = 0
         n = len(expr)
@@ -393,11 +406,9 @@ class CppHeaderParser(SyntaxParser):
         if not expr:
             return None
 
-        prefix_keywords = ['const', 'static', 'virtual']
-        for kwd in prefix_keywords:
-            if res[-1] == kwd and expr:
-                res += expr.pop(0),
-
+        while res[-1] in self.modifiers and expr:
+            res += expr.pop(0),
+        
         for chunk in expr:
             if chunk and (chunk[0] != '<' or chunk[0] != '&' or chunk[0] != '*'):
                 break
@@ -412,7 +423,7 @@ class CppHeaderParser(SyntaxParser):
 
         if -1 != res.find(clz):
             return None
-
+                
         return res
 
     def __is_attribute(self, expr):
@@ -1352,10 +1363,7 @@ class CppHeaderParser(SyntaxParser):
                 code_params.pop(code_params.index(doxy_param_name))
 
         if return_code:
-            return_code = return_code.split()
-            while return_code and return_code[0] in {'virtual', 'static'}:
-                return_code.pop(0)
-            return_code = ''.join(return_code)
+            return_code = self.__remove_modifier(return_code)
 
         if (return_code and return_code not in {'void', 'template'}) and not doxy_returns:
             errs += (err_line, 'return \"{}\" is not documented'.format(return_code)),
