@@ -9,6 +9,7 @@ from file_info_types import *
 from foundation.types import *
 from util.util_log import *
 from syntax_parser.cpp_parser import *
+from syntax_parser.syntax_parser_cpp_com import *
 
 
 logger = Logger(False)
@@ -64,6 +65,8 @@ class CppHeaderParser(SyntaxParser):
             'FALSE': 'HBool',
             'HResult': 'HResult',
         }
+
+        self.comm_cpp_parser = CommonCppParser()
 
     def __del__(self):
         super().__del__()
@@ -158,7 +161,7 @@ class CppHeaderParser(SyntaxParser):
             clz_codes[clz] = code_info
 
             if pos_line:
-                line = self.find_line(pos_line, pos + idx)
+                line = self.comm_cpp_parser.find_line(pos_line, pos + idx)
                 code_info.start_line = line
                 code_info.start_offset = pos + idx
 
@@ -202,7 +205,7 @@ class CppHeaderParser(SyntaxParser):
             expr = code[start:end + 1]
             pos = whole_code.find(expr)
 
-            line = self.find_line(pos_line, pos)
+            line = self.comm_cpp_parser.find_line(pos_line, pos)
             name = self.get_enum_name(expr)
             enum_codes += (name, expr, line),
 
@@ -679,7 +682,7 @@ class CppHeaderParser(SyntaxParser):
                 if (not ignore_deleted and delete_found) or not delete_found:
                     if pos_line:
                         pos = whole_code.find(expr)
-                        line = self.find_line(pos_line, pos)
+                        line = self.comm_cpp_parser.find_line(pos_line, pos)
 
                     logger.log('method = {}'.format(expr))
                     params = self.__split_param(expr)
@@ -909,7 +912,12 @@ class CppHeaderParser(SyntaxParser):
     def __check_prohibit_keyword(self, clz, clz_type, clz_codes, clz_methods, pos_line, cfg):
         res = {}
         for keyword in self.filter_keywords:
-            namespace, keyword = keyword.split('::')
+            try:
+                namespace, keyword = keyword.split('::')
+            except ValueError:
+                print('Keyword error: f{keyword} please add \'::\' adead of keyword')
+                continue
+
             ret = self.__check_keyword(namespace, keyword, clz_methods)
             for kwd, result in ret.items():
                 res['prohibit_keyword:' + kwd] = result
@@ -1334,7 +1342,7 @@ class CppHeaderParser(SyntaxParser):
             return RetType.WARN, errs
 
         func_idx = whole_code.find(func_code)
-        err_line = self.find_line(pos_line, func_idx)
+        err_line = self.comm_cpp_parser.find_line(pos_line, func_idx)
 
         code_params = []
         ret, err = self.__get_code_params(func_code, code_params)
@@ -1516,37 +1524,10 @@ class CppHeaderParser(SyntaxParser):
         lines = []
         res = UtilFile.get_lines(file, lines)
         if ReturnType.SUCCESS != res:
+            print("ERROR: get_lines")
             return None
 
         return ''.join(lines)
 
     def get_line_pos(self, code):
-        n = len(code)
-        i = 0
-        line = 1
-        pos_line = []
-
-        while i < n:
-            if code[i] == '\n':
-                pos_line += (i, line),
-                line += 1
-            i += 1
-
-        pos_line += (i, line),
-        return pos_line
-
-    def find_line(self, pos_line, pos):
-        l = 0
-        end = r = len(pos_line)
-
-        while l <= r:
-            m = (l + r)//2
-            if pos_line[max(0, m - 1)][0] <= pos <= pos_line[min(end, m)][0]:
-                return pos_line[m][1]
-
-            if pos_line[m][0] < pos:
-                l = m + 1
-            else:
-                r = m - 1
-
-        return -1
+        return self.comm_cpp_parser.get_line_pos(code)

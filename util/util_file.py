@@ -31,6 +31,7 @@ class UtilFile:
         pass
 
     file_types = collections.defaultdict(None)
+    file_names = collections.defaultdict(None)
 
     @staticmethod
     def find_subdirs(url, depth=None):
@@ -59,17 +60,22 @@ class UtilFile:
         return dirs
 
     @staticmethod
+    def set_file_type_name(file_type, file_ext_name):
+        UtilFile.file_types[file_ext_name] = file_type
+        UtilFile.file_names[file_type] = file_ext_name
+
+    @staticmethod
     def init_file_type():
-        UtilFile.file_types['h'] = FileType.CPP_HEADER
-        UtilFile.file_types['hpp'] = FileType.CPP_HEADER
-        UtilFile.file_types['hxx'] = FileType.CPP_HEADER
-        UtilFile.file_types['cpp'] = FileType.CPP_IMPL
-        UtilFile.file_types['cxx'] = FileType.CPP_IMPL
-        UtilFile.file_types['c'] = FileType.CPP_IMPL
-        UtilFile.file_types['json'] = FileType.JSON
-        UtilFile.file_types['txt'] = FileType.TEXT
-        UtilFile.file_types['pro'] = FileType.PRO
-        UtilFile.file_types['qml'] = FileType.QML
+        UtilFile.set_file_type_name(FileType.CPP_HEADER, 'h')
+        UtilFile.set_file_type_name(FileType.CPP_HEADER, 'hpp')
+        UtilFile.set_file_type_name(FileType.CPP_HEADER, 'hxx')
+        UtilFile.set_file_type_name(FileType.CPP_IMPL, 'cpp')
+        UtilFile.set_file_type_name(FileType.CPP_IMPL, 'cxx')
+        UtilFile.set_file_type_name(FileType.CPP_IMPL, 'c')
+        UtilFile.set_file_type_name(FileType.JSON, 'json')
+        UtilFile.set_file_type_name(FileType.TEXT, 'txt')
+        UtilFile.set_file_type_name(FileType.PRO, 'pro')
+        UtilFile.set_file_type_name(FileType.QML, 'qml')
 
     @staticmethod
     def get_file_type(extension):
@@ -269,3 +275,31 @@ class UtilFile:
 
         fp.close()
         return ReturnType.SUCCESS
+    
+    @staticmethod
+    def save_as_file(url, data):
+        try:
+            with open(url, 'w') as fp:
+                fp.write(data)
+        except:
+            return False    
+        
+        return True
+
+    @staticmethod
+    def get_extension_name(file_type: FileType):
+        return UtilFile.file_names[file_type]
+
+    @staticmethod
+    def get_extension(name):
+        delimeter = PlatformInfo.get_delimiter()
+        tokens = name.split(delimeter)
+        if not tokens:
+            return ''
+
+        tokens = tokens[-1].split('.')
+        if not tokens:
+            return ''
+
+        return tokens[-1]
+

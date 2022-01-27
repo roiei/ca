@@ -8,14 +8,27 @@ from file_info_types import *
 from foundation.types import *
 from util.util_log import *
 from syntax_parser.cpp_parser import *
+from syntax_parser.syntax_parser_cpp_com import *
 
 
 DEBUG_MSG_ON = False
 
 
+class ClassCodeInfo:
+    def __init__(self):
+        self.code = ''
+        self.start_line = 0
+        self.start_pos = 0
+        self.start_offset = 0
+        self.end_line = 0
+        self.end_pos = 0
+        self.nested = False
+
+
 class CppImplParser(SyntaxParser):
     def __init__(self, name):
         super().__init__(name)
+        self.comm_cpp_parser = CommonCppParser()
 
     def __del__(self):
         super().__del__()
@@ -58,4 +71,285 @@ class CppImplParser(SyntaxParser):
         # [(clz1, call1), (clz2, call2), ...]
         return calls
 
-            
+    def get_code_lines(self, url):
+        lines = []
+        res = UtilFile.get_lines(url, lines, 'utf-8')
+        if res == ReturnType.UNICODE_ERR:
+            res = UtilFile.get_lines(url, lines, 'euc-kr')
+        elif res != ReturnType.SUCCESS:
+            return None
+
+        if not lines:
+            print('Err: not possible to read: ', url)
+            return None
+
+        return ''.join(lines)
+
+    def __find_class_end_with_code(self, code, start_idx):
+        clz_code = code[start_idx:]
+        if not clz_code or '{' == clz_code[0]:
+            return -1
+
+        n = len(clz_code)
+        i = 0
+        while i < n and clz_code[i] != '{':
+            i += 1
+
+        if i == n:
+            return -1
+
+        op_cnt = 1
+        i += 1
+
+        while op_cnt and i < n:
+            if '{' == clz_code[i]:
+                op_cnt += 1
+            elif '}' == clz_code[i]:
+                op_cnt -= 1
+            i += 1
+
+        if op_cnt > 0:
+            return -1
+
+        return i
+
+    def __remove_curly_brace(self, code, depth=1):
+        i = 0
+        n = len(code)
+
+        # remove the first '{'' and the last '}'
+        while i < n and code[i] != '{':
+            i += 1
+
+        if i < n and code[i] == '{':
+            i += 1  # skip '{'
+
+        tail = n - 1
+        while tail >= 0 and code[tail] != '}':
+            tail -= 1
+
+        if tail >= 0 and code[tail] == '}':
+            tail -= 1 # skip '}'
+
+        return code[i:tail + 1]
+
+    def get_each_class_code(self, code, pos_line=None):
+        pattern_name, pattern = SearchPatternCpp.get_pattern_find_class_start()
+        clz_codes = collections.defaultdict(ClassCodeInfo)
+        res_found_clz = []
+        pos = 0
+
+        while True:
+            m = pattern.search(code)
+            if not m:
+                break
+
+            found = m.group()
+            clz = m.groups()[2].strip()
+            idx = m.start()
+            if -1 == idx:
+                break
+
+            length = self.__find_class_end_with_code(code, idx)
+            if -1 == length:
+                break
+
+            if 'enum' in found:
+                code = code[idx + length:]
+                continue
+
+            res_found_clz += found,
+            code_info = ClassCodeInfo()
+            clz_codes[clz] = code_info
+
+            if pos_line:
+                line = self.comm_cpp_parser.find_line(pos_line, pos + idx)
+                code_info.start_line = line
+                code_info.start_pos = pos + idx
+                code_info.start_offset = pos + idx
+                code_info.end_line = self.comm_cpp_parser.find_line(pos_line, pos + idx + length)
+                code_info.end_pos = pos + idx + length
+
+            code_info.code = self.__remove_curly_brace(code[idx:idx + length])
+
+            # print('>>>>>>>>>>>>>>>>>>>>>')
+            # print('code_info.code = ', code_info.code)
+            # print('<<<<<<<<<<<<<<<<<<<<<')
+
+            # call itself recrusively for nested class
+            clz_idxs, nested_class_codes = self.get_each_class_code(code_info.code[:])
+            for nclz, nclz_code in nested_class_codes.items():
+                clz_codes["nested::" + nclz] = nclz_code
+
+            for nclz_found in clz_idxs:
+                idx = nclz_found.find('{')
+                if idx == -1:
+                    continue
+                nclz_found = nclz_found[:idx]
+                code_info.code = re.compile(nclz_found).sub("", code_info.code)
+
+            code = code[idx + length:]
+            pos += idx + length
+
+        return res_found_clz, clz_codes
+
+    def remove_comments(self, code):
+        code = re.compile("(?s)/\*.*?\*/").sub("", code)
+        code = re.compile("//.*").sub("", code)
+        return code
+
+    def get_code(self, url):
+        lines = self.get_code_lines(url)
+        code = self.remove_comments(lines)
+        return code
+
+    def get_methods_in_file(self, url):
+        print('get methods: url = ', url)
+
+    def get_line_pos(self, code):
+        return self.comm_cpp_parser.get_line_pos(code)
+
+    def get_method_end_pos(self, code):
+        i = 0
+        n = len(code)
+
+        #print('method input code = ', code)
+
+        while i < n:
+            if code[i] == '(':
+                break
+            i += 1
+
+        if i == n:
+            return None
+
+        opn_cnt = 1
+        i += 1
+
+        while i < n and opn_cnt:
+            if code[i] == '(':
+                opn_cnt += 1
+            elif code[i] == ')':
+                opn_cnt -= 1
+            i += 1
+
+        #print('method name only = ', code[:i])
+        return i
+
+    def get_method_code_blocks(self, code):
+        print('+get_method_code_blocks')
+        pname, pattern_method = SearchPatternCpp.get_pattern_methods()
+        if not pattern_method:
+            print('ERROR: pattern for {} is not found'.format(pname))
+            return
+
+        hpp_parser = CppHeaderParser('?')
+        # print('\n'*3)
+        # print('-'*30)
+        # print('code = ', code)
+        # print('-'*30)
+        # print('\n'*3)
+
+        code_start_pos = []
+        m = pattern_method.finditer(code)
+        for item in m:
+            start = item.span()[0]
+            end = item.span()[1]
+
+            method_end_pos = self.get_method_end_pos(code[start:end])
+            #print('method = ', code[start:end])
+            method_name = hpp_parser.get_method_name(code[start:start + method_end_pos])
+            if not method_name:
+                print('not found')
+                continue
+
+            #print('method_name = ', method_name)
+            #print()
+
+            code_start_pos += (method_name, start + method_end_pos),
+
+        n = len(code)
+        res = []
+
+        for method_name, code_start in code_start_pos:
+            #print('>>', code[code_start - 10: code_start + 10])
+
+            if res and res[-1][-1] >= code_start:
+                print('false detection!: ', method_name, code_start_pos[-1][1], start)
+                # wrong detection of method
+                # to prevent it, it needs to fix regex expression ...
+                continue
+
+            i = code_start
+
+            while i < n:
+                if code[i] == '{':
+                    break
+                i += 1
+
+            if i == n or code[i] != '{':
+                continue
+
+            func_code = ''
+            opn_cnt = 1
+
+            i += 1
+
+            while i < n and opn_cnt:
+                if code[i] == '{':
+                    opn_cnt += 1
+                elif code[i] == '}':
+                    opn_cnt -= 1
+
+                assert(opn_cnt >= 0)
+                i += 1
+
+            res += (method_name, code[code_start:i], code_start, i),
+
+            # print('***')
+            # print(method_name + ' = ', code[code_start:i])
+            # print()
+
+        # for method_name, method_code in res:
+        #     print('***')
+        #     print(method_name + ' = ', method_code)
+        #     print()
+
+        return res
+
+    def remove_access_modifier(self, code):
+        i = 0
+        n = len(code)
+        pos = []
+
+        while i < n:
+            if i == n - 1 and code[i] == ':' and i - 1 >= 0 and code[i - 1] != ':':
+                pos += i,
+
+            if i < n - 1 and code[i] == ':' and i - 1 >= 0 and code[i - 1] != ':' \
+                    and i + 1 < n and code[i + 1] != ':':
+                pos += i,
+
+            i += 1
+
+        remove_pos = []
+
+        for i in pos:
+            word = ''
+            cur = i - 1
+
+            while code[cur].isalpha() or code[cur] == ' ':
+                word += code[cur]
+                cur -= 1
+
+            if cur < i - 1:
+                remove_pos += (cur + 1, i),
+
+            #print('word = ', word[::-1])
+
+        #print('remove_pos = ', remove_pos)
+
+        for start, end in remove_pos[::-1]:
+            code = code[:start] + code[end + 1:]
+
+        return code

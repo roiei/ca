@@ -18,6 +18,8 @@ from design_verification.verify_handler import *
 from enu.enum_handler import *
 from dependency.dependency_analysis_handler import *
 from dependency.call_dependency_analysis_handler import *
+from generate_views.generate_views import *
+from complexity.complexity_handler import *
 from util.platform_info import *
 
 
@@ -61,6 +63,14 @@ cmd_handlers = {
         CallDependencyAnalysisHandler(),
         '--cmd=call_dependency --ppath=./ --upath=./  [--savefile=name] \
         [--loadfile=name]'
+    ),
+    'generate_view': (
+        ViewGenerationHandler(),
+        '--cmd=generate_view --input=input_data_file --output=output_data_file'
+    ),
+    'complexity': (
+        ComplexityAnalysisHandler(),
+        '--cmd=complexity --path=path [--recursive_depth=2]'
     )
 }
 

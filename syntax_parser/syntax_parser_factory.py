@@ -34,3 +34,10 @@ class SyntaxParserFactory:
         if extension not in SyntaxParserFactory.creator:
             return None
         return SyntaxParserFactory.creator[extension]()
+
+    @staticmethod
+    def get_parsers(extensions=[]):
+        res = {}
+        for extension in extensions:
+            res[extension] = SyntaxParserFactory.create(extension)
+        return res
