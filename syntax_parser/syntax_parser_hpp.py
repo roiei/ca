@@ -1021,6 +1021,9 @@ class CppHeaderParser(SyntaxParser):
             return ''
 
         method_chunks = method_name.split()
+        if not method_chunks:
+            print('No method name for ', method_chunks)
+            return ''
 
         try:
             if len(method_chunks) > 1 and method_chunks[-1] in {'==', '=', '+', '-'} and \
@@ -1029,7 +1032,8 @@ class CppHeaderParser(SyntaxParser):
             else:
                 method_name = method_chunks[-1] 
         except IndexError:
-            print('index err @ method: ', method_name)
+            print('exit... index err @ method: ', method_name)
+            print(method_chunks)
             print(method, sx, ex)
             sys.exit()
 

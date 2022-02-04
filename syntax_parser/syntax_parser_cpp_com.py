@@ -21,11 +21,31 @@ class CommonCppParser:
 
         return -1
 
+    def find_pos(self, pos_line, line, offset):
+        l = 0
+        end = r = len(pos_line) - 1
+
+        print(pos_line)
+
+        while l <= r:
+            m = (l + r)//2
+            print(m)
+
+            if pos_line[m][1] == line:
+                return pos_line[max(m + offset, 0)][0]
+
+            if pos_line[m][1] < line:
+                l = m + 1
+            else:
+                r = m - 1
+
+        return -1
+
     def get_line_pos(self, code):
         n = len(code)
         i = 0
         line = 1
-        pos_line = []
+        pos_line = [(0, 0)]
 
         while i < n:
             if code[i] == '\n':

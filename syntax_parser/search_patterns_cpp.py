@@ -39,7 +39,8 @@ class SearchPatternCpp:
         #SearchPatternCpp.patterns['class_definition'] = re.compile('(class[\s]+)([\w]+)(\s)*(:)*(\s)*(public|protected|private)*(\s)*[\w]*(\s)*([\s\n]*{)')
         SearchPatternCpp.patterns['curly_brace'] = re.compile('{[:\w\s~=<>&();]*}')
         #SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\([\w\s&*<:>=,(){}\"]*\)+[\w\s=]*')
-        SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\([\w\s&*<:>=\.,(){}\"]*\)+[\w\s=]*')
+        #SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\([\w\s&*<:>=\.,(){}\"]*\)+[\w\s=]*')
+        SearchPatternCpp.patterns['method'] = re.compile('[~\w\s<,>():=*|+&!-]+\s*\([\w\s&*<:>=\.,()\[\]{}\"]*\)+[\w\s=]*')
         SearchPatternCpp.patterns['deleted_method'] = re.compile('=\s*delete[\s\n]*')
 
     @classmethod

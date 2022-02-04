@@ -9,6 +9,8 @@ from foundation.types import *
 from util.util_log import *
 from syntax_parser.cpp_parser import *
 from syntax_parser.syntax_parser_cpp_com import *
+import clang.cindex
+from clang.cindex import CursorKind
 
 
 DEBUG_MSG_ON = False
@@ -29,6 +31,9 @@ class CppImplParser(SyntaxParser):
     def __init__(self, name):
         super().__init__(name)
         self.comm_cpp_parser = CommonCppParser()
+        if not PlatformInfo.is_Linux():
+            clang.cindex.Config.set_library_file('C:/Program Files/LLVM/bin/libclang.dll')
+        self.target_cursors = {CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL}
 
     def __del__(self):
         super().__del__()
@@ -206,6 +211,9 @@ class CppImplParser(SyntaxParser):
     def get_methods_in_file(self, url):
         print('get methods: url = ', url)
 
+    def find_pos(self, pos_line, line, offset=0):
+        return self.comm_cpp_parser.find_pos(pos_line, line, offset)
+
     def get_line_pos(self, code):
         return self.comm_cpp_parser.get_line_pos(code)
 
@@ -237,7 +245,7 @@ class CppImplParser(SyntaxParser):
         return i
 
     def get_method_code_blocks(self, code):
-        print('+get_method_code_blocks')
+        #print('+get_method_code_blocks')
         pname, pattern_method = SearchPatternCpp.get_pattern_methods()
         if not pattern_method:
             print('ERROR: pattern for {} is not found'.format(pname))
@@ -248,7 +256,7 @@ class CppImplParser(SyntaxParser):
         # print('-'*30)
         # print('code = ', code)
         # print('-'*30)
-        # print('\n'*3)
+        # print('\n'*3)        
 
         code_start_pos = []
         m = pattern_method.finditer(code)
@@ -258,9 +266,11 @@ class CppImplParser(SyntaxParser):
 
             method_end_pos = self.get_method_end_pos(code[start:end])
             #print('method = ', code[start:end])
+            
             method_name = hpp_parser.get_method_name(code[start:start + method_end_pos])
+
             if not method_name:
-                print('not found')
+                #print('method was not found ({})'.format(method_name))
                 continue
 
             #print('method_name = ', method_name)
@@ -275,7 +285,7 @@ class CppImplParser(SyntaxParser):
             #print('>>', code[code_start - 10: code_start + 10])
 
             if res and res[-1][-1] >= code_start:
-                print('false detection!: ', method_name, code_start_pos[-1][1], start)
+                #print('false detection!: ', method_name, code_start_pos[-1][1], start)
                 # wrong detection of method
                 # to prevent it, it needs to fix regex expression ...
                 continue
@@ -353,3 +363,29 @@ class CppImplParser(SyntaxParser):
             code = code[:start] + code[end + 1:]
 
         return code
+
+    def get_function_names(self, code):
+        index = clang.cindex.Index.create()
+
+    def get_func_infos(self, file):
+        index = clang.cindex.Index.create()
+        tu = index.parse(file, args='-xc++ --std=c++14'.split())
+
+        func_infos = []
+        q = [(tu.cursor, 0)]
+        while q:
+            cursor, level = q.pop()
+
+            if cursor.kind in self.target_cursors:
+                func_infos += (cursor.spelling, cursor.displayname, 
+                    cursor.location.line, 
+                    cursor.extent.start.line,
+                    cursor.extent.end.line),
+
+            #show(cursor.kind, 'spel = ', cursor.spelling, 'disp = ', 
+            #    cursor.displayname, cursor.location, level=level)
+            
+            for c in cursor.get_children():
+                q += (c, level + 1),
+
+        return func_infos
