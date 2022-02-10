@@ -186,10 +186,6 @@ class CppImplParser(SyntaxParser):
 
             code_info.code = self.__remove_curly_brace(code[idx:idx + length])
 
-            # print('>>>>>>>>>>>>>>>>>>>>>')
-            # print('code_info.code = ', code_info.code)
-            # print('<<<<<<<<<<<<<<<<<<<<<')
-
             # call itself recrusively for nested class
             clz_idxs, nested_class_codes = self.get_each_class_code(code_info.code[:])
             for nclz, nclz_code in nested_class_codes.items():
@@ -230,8 +226,6 @@ class CppImplParser(SyntaxParser):
         i = 0
         n = len(code)
 
-        #print('method input code = ', code)
-
         while i < n:
             if code[i] == '(':
                 break
@@ -250,22 +244,15 @@ class CppImplParser(SyntaxParser):
                 opn_cnt -= 1
             i += 1
 
-        #print('method name only = ', code[:i])
         return i
 
     def get_method_code_blocks(self, code):
-        #print('+get_method_code_blocks')
         pname, pattern_method = SearchPatternCpp.get_pattern_methods()
         if not pattern_method:
             print('ERROR: pattern for {} is not found'.format(pname))
             return
 
         hpp_parser = CppHeaderParser('?')
-        # print('\n'*3)
-        # print('-'*30)
-        # print('code = ', code)
-        # print('-'*30)
-        # print('\n'*3)        
 
         code_start_pos = []
         m = pattern_method.finditer(code)
@@ -274,16 +261,11 @@ class CppImplParser(SyntaxParser):
             end = item.span()[1]
 
             method_end_pos = self.get_method_end_pos(code[start:end])
-            #print('method = ', code[start:end])
-            
             method_name = hpp_parser.get_method_name(code[start:start + method_end_pos])
 
             if not method_name:
                 #print('method was not found ({})'.format(method_name))
                 continue
-
-            #print('method_name = ', method_name)
-            #print()
 
             code_start_pos += (method_name, start + method_end_pos),
 
@@ -291,8 +273,6 @@ class CppImplParser(SyntaxParser):
         res = []
 
         for method_name, code_start in code_start_pos:
-            #print('>>', code[code_start - 10: code_start + 10])
-
             if res and res[-1][-1] >= code_start:
                 #print('false detection!: ', method_name, code_start_pos[-1][1], start)
                 # wrong detection of method
@@ -325,15 +305,6 @@ class CppImplParser(SyntaxParser):
 
             res += (method_name, code[code_start:i], code_start, i),
 
-            # print('***')
-            # print(method_name + ' = ', code[code_start:i])
-            # print()
-
-        # for method_name, method_code in res:
-        #     print('***')
-        #     print(method_name + ' = ', method_code)
-        #     print()
-
         return res
 
     def remove_access_modifier(self, code):
@@ -364,10 +335,6 @@ class CppImplParser(SyntaxParser):
             if cur < i - 1:
                 remove_pos += (cur + 1, i),
 
-            #print('word = ', word[::-1])
-
-        #print('remove_pos = ', remove_pos)
-
         for start, end in remove_pos[::-1]:
             code = code[:start] + code[end + 1:]
 
@@ -382,7 +349,6 @@ class CppImplParser(SyntaxParser):
         for i, path in enumerate(inc_paths):
             args += ' -I' + path
 
-        #print('args = ', args)
         tu = index.parse(file, args=args.split())
 
         func_infos = []
@@ -392,35 +358,12 @@ class CppImplParser(SyntaxParser):
         #     if d.severity >= 3:
         #         print('Error:', d.spelling, d.location)
 
-        # for i in tu.cursor.walk_preorder():
-        #     if cursor.kind in self.target_cursors:
-        #         func_infos += (cursor.spelling, cursor.displayname, 
-        #             cursor.location.line, 
-        #             cursor.extent.start.line,
-        #             cursor.extent.end.line),
-
         while q:
             cursor, level = q.pop()
             #print(level, cursor.kind, cursor.spelling, cursor.kind in self.target_cursors, cursor_file)
             cursor_file = cursor.location.file
 
-            # print(cursor_file)
-            # print(file)
-            # print(cursor.location)
-            # print()
-            # if cursor_file != file:
-            #     continue
-
             if cursor.kind in self.target_cursors:
-                
-                # print(cursor_file, len(cursor_file.name))
-                # print(file, len(file))
-                # print(cursor_file == file)
-                # print(cursor_file.__eq__(file))
-                # print(cursor.location)
-                # print(cursor.location.line)
-                # print()
-
                 if cursor_file.name == file:
                     func_infos += (cursor.spelling, 
                         cursor.displayname, 
@@ -428,9 +371,6 @@ class CppImplParser(SyntaxParser):
                         cursor.extent.start.line,
                         cursor.extent.end.line,
                         self.cursor_tbl[cursor.kind]),
-
-            #show(cursor.kind, 'spel = ', cursor.spelling, 'disp = ', 
-            #    cursor.displayname, cursor.location, level=level)
 
             if cursor_file and cursor_file.name != file:
                 continue
@@ -452,11 +392,6 @@ class CppImplParser(SyntaxParser):
             if not clz_codes[clz].code:
                 continue
 
-            # print('='*30)
-            # print('clz code = ')
-            # print(clz_codes[clz].code)
-            # print('='*30, end='\n')
-
             clz_pos += (clz_codes[clz].start_pos, clz_codes[clz].end_pos),
             res += self.get_code_in_brace(clz_codes[clz].code, pos_line)
 
@@ -464,18 +399,9 @@ class CppImplParser(SyntaxParser):
         wo_clz_code = code
 
         for start_pos, end_pos in clz_pos:
-            # print('start line = ', start_pos)
-            # print('end line   = ', end_pos)
-            # print('class code= ', wo_clz_code[start_pos: end_pos + 1])
-            # print('...')
             wo_clz_code = wo_clz_code[:start_pos] + wo_clz_code[end_pos + 1:]
 
         wo_clz_code = self.filter_func_code_only(wo_clz_code)
-
-        # print('='*30)
-        # print('wo_clz_code2 = ')
-        # print(wo_clz_code)
-        # print('='*30, end='\n')
 
         res += self.get_code_in_brace(wo_clz_code, pos_line)
         return res
@@ -605,10 +531,6 @@ class CppImplParser(SyntaxParser):
         i = pos - 1
         opn = 0
 
-        print('near = ', code[i:i + 10])
-
-        # 함수 아닌 enum class 해결
-
         while i > pre_end_pos and code[i] != ')':
             i -= 1
 
@@ -636,9 +558,6 @@ class CppImplParser(SyntaxParser):
         if code[i] == '}':
             i += 1
 
-        print('-'*20, '<<')
-        print(' * method name find from = \n', code[i:pos - 1])
-
         filtered_code = code[i:pos - 1]
 
         code_start_pos = []
@@ -647,10 +566,7 @@ class CppImplParser(SyntaxParser):
             start = item.span()[0]
             end = item.span()[1]
 
-            print(start, end)
-
             method_end_pos = self.get_method_end_pos(filtered_code[start:end])
-            #print('filtered code = ', filtered_code[start:start + method_end_pos])
             method_name = hpp_parser.get_method_name(filtered_code[start:start + method_end_pos])
             if not method_name:
                 continue
@@ -665,6 +581,6 @@ class CppImplParser(SyntaxParser):
             print('WRONG: multiple name is detected!')
             print(code_start_pos)
 
-        print('found name = ', code_start_pos[0][0])
-        print('-'*20, '>>', end='\n\n')
+        # print('found name = ', code_start_pos[0][0])
+        # print('-'*20, '>>', end='\n\n')
         return code_start_pos[0][0]
