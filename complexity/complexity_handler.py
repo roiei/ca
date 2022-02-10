@@ -3,7 +3,15 @@ from util.util_file import *
 from syntax_parser.syntax_parser_factory import *
 from design_verification.verify import *
 from util.util_file import *
+from enum import Enum
+from util.util_print import *
 
+
+class ComplexityInfo:
+    def __init__(self, name, cplx, level):
+        self.name = name
+        self.cplx = cplx
+        self.level = level
 
 
 class ComplexityAnalysisHandler(Cmd):
@@ -11,6 +19,12 @@ class ComplexityAnalysisHandler(Cmd):
         self.calc_funcs = {
             'McCabe': self.calc_cyclomatic
         }
+
+        deli = PlatformInfo.get_delimiter()
+        self.cfg_reader = ConfigReader(
+            os.path.dirname(os.path.realpath(__file__)) + 
+            deli + '..' + deli  + 'config' + deli  + 'cfg_complexity.conf')
+        self.cfg = self.cfg_reader.readAsJSON()
 
     def __del__(self):
         pass
@@ -32,13 +46,17 @@ class ComplexityAnalysisHandler(Cmd):
 
         # sys.exit()
 
+        # self.cfg <- complexity_level
+        levels = self.cfg['complexity_level']
+
+        cplx_info = collections.defaultdict(lambda: collections.defaultdict(list))
+        inc_paths = UtilFile.find_filtered_subdirs(opts["path"], None, ['hpp', 'h'])
+
         for directory, files in locations.items():
-            print('dir = ', directory)
             if not files:
                 continue
 
             for file, file_type in files:
-                print('file = ', file)
                 file_ext_name = UtilFile.get_extension_name(file_type)
                 ext = UtilFile.get_extension(file)
                 if ext not in parsers:
@@ -47,23 +65,72 @@ class ComplexityAnalysisHandler(Cmd):
 
                 parser = parsers[ext]
                 #methods_complexity = self.process_functions(file, parser, self.calc_cyclomatic)
-                methods_complexity = self.process_functions_with_clang(file, parser, self.calc_cyclomatic)
-                self.print_methods_complexity(methods_complexity)
+                methods_complexity = \
+                    self.process_functions_with_clang(
+                        file, 
+                        parser, 
+                        self.calc_cyclomatic,
+                        inc_paths)
+                #methods_complexity = self.process_functions_with_raw(file, parser, self.calc_cyclomatic)
+                
+                if not methods_complexity:
+                    continue
+
+                #self.print_methods_complexity(methods_complexity)
+
+                for i, (name, complexity) in enumerate(methods_complexity):
+                    level = self.find_complexity_level(levels, complexity)
+                    cplx_info[directory][file] += ComplexityInfo(name, complexity, level),
 
                 # for method in methods:
                 #     for func_name, calc_func in self.calc_funcs.items():
                 #         calc_func(method)
-                print()
 
-            print()
-
+        self.print_complexity(cplx_info)
         return True, None
 
-    def print_func_code(self, name, code):
-        print('-'*20)
+    def print_complexity(self, cplx_info):
+        cols = ['func/method name', 'McCabe complexity', 'complexity level']
+        col_widths = [30, 20, 20]
+
+        for directory, files in cplx_info.items():
+            print('directory = ', directory)
+
+            for file, infos in files.items():
+                rows = []
+                for info in infos:
+                    row = []        
+                    row += ('{:<12s}', info.name),
+                    row += ('{:<12d}', info.cplx),
+                    row += ('{:<5s}',  info.level),
+                    rows += row,
+
+                UtilPrint.print_lines_with_custome_lens(\
+                    ' * complexity of file = {}'.format(file), 
+                    col_widths, cols, rows)
+                print()
+
+    def find_complexity_level(self, levels, complexity):
+        l = 0
+        r = len(levels) - 1
+        while l <= r:
+            m = (l + r)//2
+            if levels[m][1] == complexity:
+                return levels[m]
+            if levels[m][1] < complexity:
+                l = m + 1
+            else:
+                r = m - 1
+
+        return levels[l - 1][0]
+
+    def print_func_code(self, name, code, code_type):
+        print('func code', '-'*20)
+        print('code_type = ', code_type)
         print('name = ', name)
+        print('code = ')
         print(code)
-        print('-'*20, end='\n')
+        print('-'*30, end='\n')
 
     def process_functions(self, file, parser, handler):
         res = []
@@ -120,33 +187,99 @@ class ComplexityAnalysisHandler(Cmd):
 
         return res
 
-    def process_functions_with_clang(self, file, parser, handler):
-        func_infos = parser.get_func_infos(file)
+    def process_functions_with_clang(self, file, parser, handler, inc_paths):
+        func_infos = parser.get_func_infos(file, inc_paths)
         if not func_infos:
             print('no func info')
             return None
 
+        #code = parser.get_code(file)
+        code = parser.get_code_lines(file)
+        if not code:
+            print('no code in file ', file)
+            return None
+        
+        func_pos = self.filter_no_code_items(code, parser, func_infos)
+
+        res = []
+        del_len = 50
+        func_pos.sort(key=lambda p: p[2])
+
+        for spelling, dispname, line, spos, epos, code_type in func_pos:
+            func_code = code[spos:epos + 1]
+            res += (spelling, handler(func_code)),
+            # print('-'*del_len)
+            # print(spelling, ' code = ', '@ ', line)
+            # print('-'*del_len)
+            # print(func_code)
+            # print('-'*del_len)
+            # print()
+
+        return res
+
+    def filter_no_code_items(self, code, parser, func_infos):
+        pos_line = parser.get_line_pos(code)
+        func_pos = []
+
+        for spelling, dispname, line, sline, eline, code_type in func_infos:
+            spos = parser.find_pos(pos_line, sline, -1)
+            epos = parser.find_pos(pos_line, eline)
+            #print('func info')
+            #print(spelling, dispname)
+            # print(sline, eline)
+            # print(spos, epos)
+            #sys.exit()
+
+            if spelling not in code:
+                continue
+
+            if sline < eline and spos < epos:
+                # print(spelling)
+                # print(sline, eline)
+                # print('pos = ', spos, epos)
+                func_pos += (spelling, dispname, line, spos, epos, code_type),
+
+            #self.print_func_code(spelling, func_code, code_type)
+        return func_pos
+
+    def process_functions_with_raw(self, file, parser, handler):
         code = parser.get_code(file);
         if not code:
             print('no code in file ', file)
             return None
 
-        res = []
         pos_line = parser.get_line_pos(code)
 
-        for spelling, dispname, line, sline, eline in func_infos:
-            spos = parser.find_pos(pos_line, sline, -1)
-            epos = parser.find_pos(pos_line, eline)
+        func_infos = parser.get_func_infos_by_brace(code, pos_line)
+        if not func_infos:
+            print('no func info')
+            return None
 
-            #print(sline, eline)
-            #print('spos = ', spos)
-            #print('pos = ', spos, epos)
-            func_code = code[spos:epos + 1]
-            res += (method_name, handler(code_blk)),
-
-            self.print_func_code(spelling, func_code)
+        res = []
+        for method_name, start_line, func_code in func_infos:
+            res += (method_name, handler(func_code)),
 
         return res
+
+        # code = parser.get_code(file);
+        # if not code:
+        #     print('no code in file ', file)
+        #     return None
+
+        # res = []
+        # for spelling, dispname, line, sline, eline in func_infos:
+        #     spos = parser.find_pos(pos_line, sline, -1)
+        #     epos = parser.find_pos(pos_line, eline)
+
+        #     #print(sline, eline)
+        #     #print('spos = ', spos)
+        #     #print('pos = ', spos, epos)
+        #     func_code = code[spos:epos + 1]
+        #     res += (spelling, handler(func_code)),
+
+        #     self.print_func_code(spelling, func_code)
+
+        # return res
 
     def print_methods_complexity(self, complexity_info):
         if not complexity_info:

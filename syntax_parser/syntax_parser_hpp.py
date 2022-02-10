@@ -68,6 +68,12 @@ class CppHeaderParser(SyntaxParser):
 
         self.comm_cpp_parser = CommonCppParser()
 
+        words = ['protected', 'private', 'public']
+
+        self.access_modifiers = Trie()
+        for word in words:
+            self.access_modifiers.insert(word)
+
     def __del__(self):
         super().__del__()
 
@@ -126,6 +132,9 @@ class CppHeaderParser(SyntaxParser):
             non_clz_code = non_clz_code[:s] + non_clz_code[e:]
 
         return non_clz_code
+
+    def is_word_startwith(self, word):
+        return self.access_modifiers.starts_with(word)
 
     def get_each_class_code(self, code, pos_line=None):
         """
@@ -448,13 +457,38 @@ class CppHeaderParser(SyntaxParser):
 
     def __get_param_pos(self, text):
         n = len(text)
+        mod_end_pos = 0
+
+        # skip access modifiers
+        i = 0
+        s = ''
+
+        while i < n:
+            if text[i].isalpha():
+                s += text[i]
+            elif (i + 1 < n and ':' == text[i + 1]) or text[i] == '(':
+                break
+            elif ':' == text[i]:
+                if self.is_word_startwith(s):
+                    mod_end_pos = i + 1
+                s = ''
+
+            i += 1
+
+        text = text[mod_end_pos:]
+        n = len(text)
         
         # ignore until :
+        #    ret_type func_name(param_type& param1) : ...
+        #    -> 
+        #    ret_type func_name(param_type& param1) <- start from here
+        #
+        # find param from back cuz function pointer can be used as return type
+
         trim_pos = n - 1
         m = re.finditer(re.compile(':'), text)
-        m = list(m)
 
-        for item in m:
+        for item in list(m):
             spos, _ = item.span()[0], item.span()[1]
             if not ((spos - 1 >= 0 and text[spos - 1] == ':') or 
                     (spos + 1 < n and text[spos + 1] == ':')):
@@ -490,7 +524,7 @@ class CppHeaderParser(SyntaxParser):
         if i < 0:
             return -1, ''
 
-        return i, end
+        return mod_end_pos + i, end
 
     def __get_param_block(self, text):
         sx, ex = self.__get_param_pos(text)
@@ -1011,7 +1045,7 @@ class CppHeaderParser(SyntaxParser):
         return True
     
     def get_method_name(self, method):
-        method = self.remove_comment(method)
+        method = self.remove_comment(method)        
         sx, ex = self.__get_param_pos(method)
         if -1 == sx:
             return ''

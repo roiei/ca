@@ -9,6 +9,7 @@ from foundation.types import *
 from util.util_log import *
 from syntax_parser.cpp_parser import *
 from syntax_parser.syntax_parser_cpp_com import *
+from common.parsing_info_types import *
 import clang.cindex
 from clang.cindex import CursorKind
 
@@ -33,7 +34,14 @@ class CppImplParser(SyntaxParser):
         self.comm_cpp_parser = CommonCppParser()
         if not PlatformInfo.is_Linux():
             clang.cindex.Config.set_library_file('C:/Program Files/LLVM/bin/libclang.dll')
-        self.target_cursors = {CursorKind.CONSTRUCTOR, CursorKind.DESTRUCTOR, CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL}
+        self.target_cursors = {CursorKind.CONSTRUCTOR, 
+            CursorKind.DESTRUCTOR, CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL}
+        self.cursor_tbl = {
+            CursorKind.DESTRUCTOR: CODE_TYPE.DESTRUCTOR,
+            CursorKind.CONSTRUCTOR: CODE_TYPE.CONSTRUCTOR,
+            CursorKind.CXX_METHOD: CODE_TYPE.METHOD,
+            CursorKind.FUNCTION_DECL: CODE_TYPE.FUNC_DECL
+        }
 
     def __del__(self):
         super().__del__()
@@ -161,6 +169,7 @@ class CppImplParser(SyntaxParser):
 
             if 'enum' in found:
                 code = code[idx + length:]
+                pos += idx + length
                 continue
 
             res_found_clz += found,
@@ -367,25 +376,295 @@ class CppImplParser(SyntaxParser):
     def get_function_names(self, code):
         index = clang.cindex.Index.create()
 
-    def get_func_infos(self, file):
+    def get_func_infos(self, file, inc_paths):
         index = clang.cindex.Index.create()
-        tu = index.parse(file, args='-xc++ --std=c++14'.split())
+        args = '-xc++ --std=c++14'
+        for i, path in enumerate(inc_paths):
+            args += ' -I' + path
+
+        #print('args = ', args)
+        tu = index.parse(file, args=args.split())
 
         func_infos = []
         q = [(tu.cursor, 0)]
+
+        # for d in tu.diagnostics:
+        #     if d.severity >= 3:
+        #         print('Error:', d.spelling, d.location)
+
+        # for i in tu.cursor.walk_preorder():
+        #     if cursor.kind in self.target_cursors:
+        #         func_infos += (cursor.spelling, cursor.displayname, 
+        #             cursor.location.line, 
+        #             cursor.extent.start.line,
+        #             cursor.extent.end.line),
+
         while q:
             cursor, level = q.pop()
+            #print(level, cursor.kind, cursor.spelling, cursor.kind in self.target_cursors, cursor_file)
+            cursor_file = cursor.location.file
+
+            # print(cursor_file)
+            # print(file)
+            # print(cursor.location)
+            # print()
+            # if cursor_file != file:
+            #     continue
 
             if cursor.kind in self.target_cursors:
-                func_infos += (cursor.spelling, cursor.displayname, 
-                    cursor.location.line, 
-                    cursor.extent.start.line,
-                    cursor.extent.end.line),
+                
+                # print(cursor_file, len(cursor_file.name))
+                # print(file, len(file))
+                # print(cursor_file == file)
+                # print(cursor_file.__eq__(file))
+                # print(cursor.location)
+                # print(cursor.location.line)
+                # print()
+
+                if cursor_file.name == file:
+                    func_infos += (cursor.spelling, 
+                        cursor.displayname, 
+                        cursor.location.line, 
+                        cursor.extent.start.line,
+                        cursor.extent.end.line,
+                        self.cursor_tbl[cursor.kind]),
 
             #show(cursor.kind, 'spel = ', cursor.spelling, 'disp = ', 
             #    cursor.displayname, cursor.location, level=level)
+
+            if cursor_file and cursor_file.name != file:
+                continue
             
             for c in cursor.get_children():
                 q += (c, level + 1),
 
         return func_infos
+
+    def get_func_infos_by_brace(self, code, pos_line):
+        """
+        return
+            [(func_name, start line, func code), ...]
+        """
+        res = []
+        found, clz_codes = self.get_each_class_code(code, pos_line)
+        clz_pos = []
+        for clz in clz_codes:
+            if not clz_codes[clz].code:
+                continue
+
+            # print('='*30)
+            # print('clz code = ')
+            # print(clz_codes[clz].code)
+            # print('='*30, end='\n')
+
+            clz_pos += (clz_codes[clz].start_pos, clz_codes[clz].end_pos),
+            res += self.get_code_in_brace(clz_codes[clz].code, pos_line)
+
+        clz_pos.sort(key=lambda p: p[1], reverse=True)
+        wo_clz_code = code
+
+        for start_pos, end_pos in clz_pos:
+            # print('start line = ', start_pos)
+            # print('end line   = ', end_pos)
+            # print('class code= ', wo_clz_code[start_pos: end_pos + 1])
+            # print('...')
+            wo_clz_code = wo_clz_code[:start_pos] + wo_clz_code[end_pos + 1:]
+
+        wo_clz_code = self.filter_func_code_only(wo_clz_code)
+
+        # print('='*30)
+        # print('wo_clz_code2 = ')
+        # print(wo_clz_code)
+        # print('='*30, end='\n')
+
+        res += self.get_code_in_brace(wo_clz_code, pos_line)
+        return res
+        #self.print_funcs(funcs)
+
+    def filter_func_code_only(self, code):
+        func_pos = []
+        n = len(code)
+        i = 0
+
+        # print('wo_clz_code1 = ', code)
+        # print('-'*40)
+
+        while i < n:
+            if code[i] == '{':
+                break
+            i += 1
+
+        if i == n or code[i] != '{':
+            # no function here
+            return
+
+        opn = 1
+        start_pos = i
+        i += 1
+
+        while i < n:
+            if code[i] == '{':                
+                opn += 1
+                if opn == 1:
+                    start_pos = i
+            elif code[i] == '}':
+                opn -= 1
+                if opn == 0:
+                    func_pos += (start_pos, i),
+
+            i += 1
+
+        # for start, end in func_pos:
+        #     print('start, end', code[start], code[end])
+
+        for idx, (start, end) in enumerate(func_pos):
+            i = start - 1
+            while i >= 0:
+                if code[i] == ';' or code[i] == '}':
+                    break
+                i -= 1
+
+            if code[i] == ';' or code[i] == '}':
+                i += 1
+            func_pos[idx] = (i, end)
+
+        trimed_code = self.delete_code_section(func_pos, code)
+        return trimed_code
+
+    def delete_code_section(self, positions, code):
+        positions.sort(key=lambda p: p[1], reverse=True)
+        trimed_code = ''
+        for start, end in positions:
+            trimed_code = code[start: end + 1] + trimed_code
+
+        return trimed_code
+
+    def print_funcs(self, funcs):
+        print('-'*30)
+        for name, line, func_code in funcs:
+            print('name = ', name)
+            print('line = ', line)
+            print(func_code)
+            print('-'*30, end='\n\n')
+        print('-'*30)
+
+    def get_code_in_brace(self, code, pos_line):
+        if not code:
+            return []
+
+        n = len(code)
+        i = 0
+        opn = 0
+        func = ''
+        start_line = 0
+        start_pos = 0
+        pre_end_pos = 0
+        funcs = []
+
+        while i < n:
+            if code[i] == '{':
+                opn += 1
+                if 1 == opn:
+                    start_pos = i
+                    start_line = self.comm_cpp_parser.find_line(pos_line, i)
+                else:
+                    func += code[i]
+                i += 1
+                continue
+
+            if code[i] == '}':
+                opn -= 1
+                if 0 == opn:
+                    func_name = self.find_func_name(code, start_pos, pre_end_pos)
+                    if func_name:
+                        funcs += (func_name, start_line, func),
+                    func = ''
+                    pre_end_pos = i
+                else:
+                    func += code[i]
+
+                i += 1
+                continue
+
+            if opn:
+                func += code[i]
+
+            i += 1
+
+        return funcs
+
+    def find_func_name(self, code, pos, pre_end_pos):
+        pname, pattern_method = SearchPatternCpp.get_pattern_methods()
+        if not pattern_method:
+            print('ERROR: pattern for {} is not found'.format(pname))
+            return ''
+
+        hpp_parser = CppHeaderParser('?')
+
+        n = len(code)
+        i = pos - 1
+        opn = 0
+
+        print('near = ', code[i:i + 10])
+
+        # 함수 아닌 enum class 해결
+
+        while i > pre_end_pos and code[i] != ')':
+            i -= 1
+
+        if code[i] != ')':
+            return ''
+
+        opn = 1
+        i -= 1
+
+        while i > pre_end_pos and opn > 0:
+            if code[i] == '(':
+                opn -= 1
+
+            if code[i] == ')':
+                opn += 1
+
+            i -= 1
+
+        while i > pre_end_pos and (code[i] != '}' and code[i] != ';'):
+            i -= 1
+
+        if i < 0:
+            i = 0
+
+        if code[i] == '}':
+            i += 1
+
+        print('-'*20, '<<')
+        print(' * method name find from = \n', code[i:pos - 1])
+
+        filtered_code = code[i:pos - 1]
+
+        code_start_pos = []
+        m = pattern_method.finditer(filtered_code)
+        for item in m:
+            start = item.span()[0]
+            end = item.span()[1]
+
+            print(start, end)
+
+            method_end_pos = self.get_method_end_pos(filtered_code[start:end])
+            #print('filtered code = ', filtered_code[start:start + method_end_pos])
+            method_name = hpp_parser.get_method_name(filtered_code[start:start + method_end_pos])
+            if not method_name:
+                continue
+
+            code_start_pos += (method_name, start + method_end_pos),
+
+        if not code_start_pos:
+            print('ERROR: No name is found!')
+            return ''
+
+        if code_start_pos and len(code_start_pos) > 1:
+            print('WRONG: multiple name is detected!')
+            print(code_start_pos)
+
+        print('found name = ', code_start_pos[0][0])
+        print('-'*20, '>>', end='\n\n')
+        return code_start_pos[0][0]

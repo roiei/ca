@@ -54,10 +54,67 @@ class UtilFile:
             for dir_name in dir_names:
                 full_url = os.path.join(url, dir_name)
                 if os.path.isdir(full_url) and depth + 1 <= limit:
-                    q += (full_url, depth + 1),
                     dirs += full_url,
+                    q += (full_url, depth + 1),
 
         return dirs
+
+    @staticmethod
+    def find_filtered_subdirs(start_url, depth=None, extension_filter=[]):
+        if not extension_filter:
+            return []
+
+        q = [(start_url, 0)]
+        dirs = []
+        limit = depth if depth else float('inf')
+
+        while q:
+            url, depth = q.pop(0)
+            try:
+                dir_names = os.listdir(url)
+            except FileNotFoundError:
+                print('ERROR: no such a url = {}'.format(url))
+                continue
+            except NotADirectoryError:
+                print('ERROR: not a directory = {}'.format(url))
+                continue
+
+            for dir_name in dir_names:
+                full_url = os.path.join(url, dir_name)
+                if os.path.isdir(full_url) and depth + 1 <= limit:
+                    file_list = os.listdir(full_url)
+                    include = False
+                    for file in file_list:
+                        extension = file.split('.')[-1]
+                        if extension in extension_filter:
+                            include = True
+                            break
+
+                    if include:
+                        dirs += full_url,
+
+                    q += (full_url, depth + 1),
+
+        res_dirs = UtilFile.get_all_subsequence_dirs(start_url, dirs)
+        #print('res_dirs = ', res_dirs)
+        return dirs + res_dirs
+
+    @staticmethod
+    def get_all_subsequence_dirs(start_url, dirs):
+        res_dirs = set()
+        for url in dirs:
+            idx = url.find(start_url)
+            remainder = url[idx + len(start_url) + 1:]
+            chunks = remainder.split(PlatformInfo.get_delimiter())
+            prefs = []
+
+            for i in range(len(chunks) - 1):
+                prefs += chunks[i],
+                path = PlatformInfo.get_delimiter().join([start_url] + prefs)
+                if path not in res_dirs:
+                    res_dirs.add(path)
+
+        return list(res_dirs)
 
     @staticmethod
     def set_file_type_name(file_type, file_ext_name):
