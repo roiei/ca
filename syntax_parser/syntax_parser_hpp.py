@@ -24,7 +24,7 @@ class ClassCodeInfo:
 
 
 class CppHeaderParser(SyntaxParser):
-    def __init__(self, name):
+    def __init__(self, name, ctx=None):
         super().__init__(name)
         deli = PlatformInfo.get_delimiter()
         self.cfg_reader = ConfigReader(

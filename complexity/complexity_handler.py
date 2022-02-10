@@ -37,7 +37,7 @@ class ComplexityAnalysisHandler(Cmd):
         if not locations:
             return False, None
 
-        parsers = SyntaxParserFactory.get_parsers(['cpp', 'hpp'])
+        parsers = SyntaxParserFactory.get_parsers(['cpp', 'hpp'], self.cfg["clang_lib_location"])
 
         # for directory, files in locations.items():
         #     print('dir = ', directory)

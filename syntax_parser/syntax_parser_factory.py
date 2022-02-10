@@ -11,12 +11,12 @@ class SyntaxParserFactory:
         pass
     
     @staticmethod
-    def createCppHeader():
-        return CppHeaderParser('CppHeaderParser')
+    def createCppHeader(ctx=None):
+        return CppHeaderParser('CppHeaderParser', ctx)
 
     @staticmethod
-    def createCppImpl():
-        return CppImplParser('CppImplParser')
+    def createCppImpl(ctx=None):
+        return CppImplParser('CppImplParser', ctx)
     
     creator = {}
     creator['hpp'] = createCppHeader.__func__
@@ -30,14 +30,14 @@ class SyntaxParserFactory:
         return types
 
     @staticmethod
-    def create(extension):
+    def create(extension, ctx=None):
         if extension not in SyntaxParserFactory.creator:
             return None
-        return SyntaxParserFactory.creator[extension]()
+        return SyntaxParserFactory.creator[extension](ctx)
 
     @staticmethod
-    def get_parsers(extensions=[]):
+    def get_parsers(extensions=[], ctx=None):
         res = {}
         for extension in extensions:
-            res[extension] = SyntaxParserFactory.create(extension)
+            res[extension] = SyntaxParserFactory.create(extension, ctx)
         return res

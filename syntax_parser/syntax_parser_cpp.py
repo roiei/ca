@@ -29,11 +29,11 @@ class ClassCodeInfo:
 
 
 class CppImplParser(SyntaxParser):
-    def __init__(self, name):
+    def __init__(self, name, ctx=None):
         super().__init__(name)
         self.comm_cpp_parser = CommonCppParser()
         if not PlatformInfo.is_Linux():
-            clang.cindex.Config.set_library_file('C:/Program Files/LLVM/bin/libclang.dll')
+            clang.cindex.Config.set_library_file(ctx)
         self.target_cursors = {CursorKind.CONSTRUCTOR, 
             CursorKind.DESTRUCTOR, CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL}
         self.cursor_tbl = {

@@ -337,10 +337,40 @@ python main.py --cmd=call_dependency --ppath=D:\projects\ccnc\all\api --upath=d:
 
 ### 7. code complexity analysis
 
-this feature is not under development
+* prerequisite on Linux
+  * libclang.so file is required for clang.cindex
+  * sudo ln -s /usr/lib/x86_64-linux-gnu/libclang-10.so.1 /usr/lib/x86_64-linux-gnu/libclang.so
+* prerequisite on Windows
+  * download libclang.dll at site https://releases.llvm.org/download.html
+  * and open config/cfg_complexity.conf, then fill out 
+    "clang_lib_location": {PATH_LIBCLANG}
+
 &nbsp;
 
-#### idea
+#### usage
+
+python main.py --cmd=complexity --path={PROGRAM_ROOT_PATH}
+
+* path must be root path of the program that has all the source files related to it.
+* the include paths are calculated based on the root path.
+
+&nbsp;
+
+#### result
+
+...
+some_app\src\model\system\key_handlers.cpp
++------------------------------------------------------------------------------+
+| func/method name               | McCabe complexity    | complexity level     |
++------------------------------------------------------------------------------+
+| Impl                           | 1                    | good                 |
++--------------------------------+----------------------+----------------------+
+| handleEvents                   | 86                   | risky                |
++--------------------------------+----------------------+----------------------+
+
+&nbsp;
+
+#### misc.
 
 sudo apt-get update --fix-missing
 sudo apt install clang
