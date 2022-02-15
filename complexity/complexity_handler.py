@@ -39,13 +39,6 @@ class ComplexityAnalysisHandler(Cmd):
 
         parsers = SyntaxParserFactory.get_parsers(['cpp', 'hpp'], self.cfg["clang_lib_location"])
 
-        # for directory, files in locations.items():
-        #     print('dir = ', directory)
-        #     for file, file_type in files:
-        #         print('file = ', file)
-
-        # sys.exit()
-
         # self.cfg <- complexity_level
         levels = self.cfg['complexity_level']
 
@@ -71,20 +64,13 @@ class ComplexityAnalysisHandler(Cmd):
                         parser, 
                         self.calc_cyclomatic,
                         inc_paths)
-                #methods_complexity = self.process_functions_with_raw(file, parser, self.calc_cyclomatic)
                 
                 if not methods_complexity:
                     continue
 
-                #self.print_methods_complexity(methods_complexity)
-
                 for i, (name, complexity) in enumerate(methods_complexity):
                     level = self.find_complexity_level(levels, complexity)
                     cplx_info[directory][file] += ComplexityInfo(name, complexity, level),
-
-                # for method in methods:
-                #     for func_name, calc_func in self.calc_funcs.items():
-                #         calc_func(method)
 
         self.print_complexity(cplx_info)
         return True, None
@@ -147,7 +133,6 @@ class ComplexityAnalysisHandler(Cmd):
             if not clz_codes[clz].code:
                 continue
 
-            #print('clz code = ', clz_codes[clz].code)
             clz_pos += (clz_codes[clz].start_pos, clz_codes[clz].end_pos),
 
         clz_pos.sort(key=lambda p: p[1], reverse=True)

@@ -132,7 +132,6 @@ class CallDependencyAnalysisHandler(Cmd):
                 if not code:
                     continue
 
-                #print(file)
                 calls = parser.find_method_calls(code)
 
                 self.update_freq(calls, callinfo)
@@ -144,18 +143,10 @@ class CallDependencyAnalysisHandler(Cmd):
             if not dname.startswith('ccos.'):
                 continue
 
-            self.print_call_stats(dstat, dname)
-            print()
-            # for cname, method_info in callinfo.dir_info[dname].items():
-            #     print(cname)
-            #     for mname, freq in method_info.items():
-            #         print('\t', mname, freq)
+            # self.print_call_stats(dstat, dname)
+            # print()
 
         self.print_result(callinfo)
-        #self.print_targetfreq_methods(callinfo, 0)
-        #self.print_above_targetfreq_methods(callinfo, 0)
-
-        #self.draw_result_tbl(callinfo) # possible but data is too big to use it
 
     def update_freq(self, calls, callinfo):
         for method, freq in calls.items():
@@ -356,9 +347,6 @@ class CallDependencyAnalysisHandler(Cmd):
                     method_name[1:] == clz or \
                     'operator' in method_name:
                     continue
-
-                # if method_name == '=':
-                #     print(method)
 
                 clz_method = clz + '::' + method_name
 

@@ -30,12 +30,7 @@ class ProBuildScriptParser:
                 i += 1
             nitems += item[1:i],
 
-        items = nitems
-
-        # print('line = ', line)
-        # print('items =', items)
-        # sys.exit()
-        for item in items:
+        for item in nitems:
             g[param].fan_outs.add(item)
     
     @staticmethod
@@ -85,16 +80,10 @@ class ProBuildScriptParser:
         
         content = self.remove_comment(content)
         g = collections.defaultdict(ModuleInfo)
-
         oname = self.add_output_module(g, content, url)
 
-        #print('url = ', url, 'oname = ', oname)
-
         if '' == oname:
-            #print('UNDEF: url = ', url)
             return
-        
-        #print('pro = ', oname)
 
         for pname, value in ProBuildScriptParser.pattern_handlers.items():
             pattern_str, _handler = value
@@ -130,15 +119,12 @@ class ProBuildScriptParser:
             print('Pro:ERROR: could not find name = {}'.format(name), url)
             return ''
 
-        #print('type = {}, name = {}, depth = {}'.format(type, name, depth))
-        
         g[name] = ModuleInfo()
         g[name].name = name
         g[name].type = type
         g[name].depth = depth
         g[name].url = url
 
-        #print('type = {}, name = {}'.format(type, name))
         return name
 
     def find_module_type(self, content):
@@ -150,7 +136,7 @@ class ProBuildScriptParser:
         type = ''
         words = m.group().split('=')
         words = [word.strip() for word in words]
-        #print(words)
+
         if words[0] == 'TEMPLATE':
             type = words[1]
 
@@ -176,10 +162,6 @@ class ProBuildScriptParser:
     }
 
     def get_module_info(self, type_str, name, url):
-        #print('type = ', type_str)
-        #print('name = ', name)
-        #print('url = ', url)
-
         type, depth = ProBuildScriptParser.types.get(type_str, ('NONE', -1))
         if type == 'NONE':
             return '', 0
@@ -187,14 +169,8 @@ class ProBuildScriptParser:
         return type, depth
 
     def _parse_outputname(self, line, g, url, content):
-        #TARGET = ccshmi
         words = line.split('=')
         words = [word.strip() for word in words]
-        #print('words = ', words)
-
-        #if 'hcloud' == words[-1]:
-            #print(url)
-            #sys.exit()
 
         try:
             _, name = words

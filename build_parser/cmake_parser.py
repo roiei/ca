@@ -54,7 +54,6 @@ class CMakeBuildScriptParser:
 
     @staticmethod
     def _get_module_info(type_str, name):
-        #print('type = ', type_str, 'name = ', name)
         value = CMakeBuildScriptParser.types.get(type_str, ('NONE', -1))
         type, depth = value
         if type == 'NONE':
@@ -67,13 +66,9 @@ class CMakeBuildScriptParser:
             type += ':' + sub_type
             depth = sub_depth
 
-        # print(type, depth)
-        # print()
-
         return type, depth
 
     def _parse_outputname(self, line, g, url, content):
-        #print('line = ', line)
         sx = line.find('(')
         ex = line.rfind(')')
         if sx != -1 and sx < ex:
@@ -134,9 +129,6 @@ class CMakeBuildScriptParser:
         content = line[sx + 1:ex].split()
         filtered = []
 
-
-        print(content)
-
         for item in content:
             if item in {'${LIB_NAME}', 'PRIVATE', 
                 '${APP_NAME}', '${PROJECT_NAME}', 
@@ -162,8 +154,8 @@ class CMakeBuildScriptParser:
 
             g[param].fan_outs.add(item)
 
-        print(filtered)
-        print(param, ' = ', g[param].fan_outs)
+        # print(filtered)
+        # print(param, ' = ', g[param].fan_outs)
 
     pattern_handlers = {
         'dependency':
@@ -202,15 +194,14 @@ class CMakeBuildScriptParser:
 
         g = collections.defaultdict(ModuleInfo)
         oname = self.add_output_module(g, content, url)
-        print('cmake = ', oname)
-        print(url)
+        # print('cmake = ', oname)
+        # print('url = ', url)
 
         if '' == oname:
             print('UNDEF: url = ', url)
             return
         
         for pname, value in CMakeBuildScriptParser.pattern_handlers.items():
-            print('---')
             pattern_str, _handler = value
             pattern = re.compile(pattern_str)
 
@@ -219,7 +210,6 @@ class CMakeBuildScriptParser:
                 span = r.span()
                 name = _handler(content[span[0]:span[1]], g, oname, url)
         
-        print('===')
         return g
     
     def replace_macro_dep(self, g, module_infos):

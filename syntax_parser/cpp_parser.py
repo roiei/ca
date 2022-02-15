@@ -28,8 +28,6 @@ class CppParser:
         except TypeError as e:
             print(e, 'for ', url)
 
-        #print(lines)
-
         if lines:
             lines = re.compile("(?s)/\*.*?\*/").sub("", lines)
             lines = re.compile("//.*").sub("", lines)

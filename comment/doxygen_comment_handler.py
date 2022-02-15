@@ -156,12 +156,6 @@ class DoxygenVerificationHandler(Cmd):
             items_err = 0
             items_to_check = 0
 
-            # method_codes = set([method_code for acc_mod, method, method_code, line, num_sig in all_methods])
-            # for commented_method in commented_methods:
-            #     if comment_code not in method_codes:
-            #         dir_errs[file][clz] += (line, 'check code around method: {}'.format(commented_method)),
-            #         items_err += 1
-            
             for acc_mod, method, method_code, line, num_sig in all_methods:
                 if acc_mod in cfg.get_ignore_acc_mod():
                     continue
