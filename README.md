@@ -359,6 +359,7 @@ python main.py --cmd=complexity --path={PROGRAM_ROOT_PATH}
 #### result
 
 ...
+```
 some_app\src\model\system\key_handlers.cpp
 +------------------------------------------------------------------------------+
 | func/method name               | McCabe complexity    | complexity level     |
@@ -367,6 +368,7 @@ some_app\src\model\system\key_handlers.cpp
 +--------------------------------+----------------------+----------------------+
 | handleEvents                   | 86                   | risky                |
 +--------------------------------+----------------------+----------------------+
+```
 
 &nbsp;
 
