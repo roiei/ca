@@ -20,6 +20,7 @@ from dependency.dependency_analysis_handler import *
 from dependency.call_dependency_analysis_handler import *
 from generate_views.generate_views import *
 from complexity.complexity_handler import *
+from enu.loc_handler import *
 from util.platform_info import *
 
 
@@ -71,6 +72,10 @@ cmd_handlers = {
     'complexity': (
         ComplexityAnalysisHandler(),
         '--cmd=complexity --path=path [--recursive_depth=2]'
+    ),
+    'loc': (
+        LoCHandler(),
+        '--cmd=loc --path=path'
     )
 }
 

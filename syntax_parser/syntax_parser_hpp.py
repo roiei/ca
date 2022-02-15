@@ -1,5 +1,4 @@
 import re
-
 from syntax_parser.syntax_parser_factory import *
 import collections
 from syntax_parser.search_patterns_cpp import *
@@ -109,7 +108,7 @@ class CppHeaderParser(SyntaxParser):
             found = m.group()
             clz = m.groups()[2].strip()
             idx = m.start()
-            eidx = self.__find_class_end_with_code(code, idx)
+            eidx = self.comm_cpp_parser.find_class_end_with_code(code, idx)
             if -1 == eidx:
                 break
 
@@ -135,67 +134,6 @@ class CppHeaderParser(SyntaxParser):
 
     def is_word_startwith(self, word):
         return self.access_modifiers.starts_with(word)
-
-    def get_each_class_code(self, code, pos_line=None):
-        """
-        OUT:
-            {"class1":"code1", "class2":"code2"}
-        """
-        pattern_name, pattern = SearchPatternCpp.get_pattern_find_class_start()
-        clz_codes = collections.defaultdict(ClassCodeInfo)
-        res_found_clz = []
-        pos = 0
-
-        while True:
-            m = pattern.search(code)
-            if not m:
-                break
-
-            found = m.group()
-            clz = m.groups()[2].strip()
-            idx = m.start()
-            if -1 == idx:
-                break
-
-            length = self.__find_class_end_with_code(code, idx)
-            if -1 == length:
-                break
-
-            if 'enum' in found:
-                code = code[idx + length:]
-                continue
-
-            res_found_clz += found,
-            code_info = ClassCodeInfo()
-            clz_codes[clz] = code_info
-
-            if pos_line:
-                line = self.comm_cpp_parser.find_line(pos_line, pos + idx)
-                code_info.start_line = line
-                code_info.start_offset = pos + idx
-
-            code_info.code = self.__remove_curly_brace(code[idx:idx + length])
-
-            # call itself recrusively for nested class
-            clz_idxs, nested_class_codes = self.get_each_class_code(code_info.code[:])
-            for nclz, nclz_code in nested_class_codes.items():
-                clz_codes["nested::" + nclz] = nclz_code
-
-            #clz_codes[clz] = self.__remove_code_in_header(clz, clz_codes[clz])
-            code_info.code = self.__remove_code_in_header(clz, code_info.code)
-
-            for nclz_found in clz_idxs:
-                idx = nclz_found.find('{')
-                if idx == -1:
-                    continue
-                nclz_found = nclz_found[:idx]
-                #clz_codes[clz] = re.compile(nclz_found).sub("", clz_codes[clz])
-                code_info.code = re.compile(nclz_found).sub("", code_info.code)
-
-            code = code[idx + length:]
-            pos += idx + length
-
-        return res_found_clz, clz_codes
 
     def get_enum_codes(self, code, whole_code, pos_line):
         """
@@ -230,108 +168,6 @@ class CppHeaderParser(SyntaxParser):
         if m:
             return m.end()
         return -1
-
-    def __find_class_end_with_code(self, code, start_idx):
-        clz_code = code[start_idx:]
-        if not clz_code or '{' == clz_code[0]:
-            return -1
-
-        n = len(clz_code)
-        i = 0
-        while i < n and clz_code[i] != '{':
-            i += 1
-
-        if i == n:
-            return -1
-
-        op_cnt = 1
-        i += 1
-
-        while op_cnt and i < n:
-            if '{' == clz_code[i]:
-                op_cnt += 1
-            elif '}' == clz_code[i]:
-                op_cnt -= 1
-            i += 1
-
-        if op_cnt > 0:
-            return -1
-
-        return i
-
-    def __remove_curly_brace(self, code, depth=1):
-        i = 0
-        n = len(code)
-
-        # remove the first '{'' and the last '}'
-        while i < n and code[i] != '{':
-            i += 1
-
-        if i < n and code[i] == '{':
-            i += 1  # skip '{'
-
-        tail = n - 1
-        while tail >= 0 and code[tail] != '}':
-            tail -= 1
-
-        if tail >= 0 and code[tail] == '}':
-            tail -= 1 # skip '}'
-
-        return code[i:tail + 1]
-
-    def __remove_code_in_header(self, clz, clz_code):
-        if not clz_code:
-            return None
-
-        # RegEx is not possible for nested curly brace cases
-        # pname, pattern = SearchPatternCpp.get_pattern_curly_brace()
-        # if not pattern:
-        #     return print('ERROR: pattern for {} is not found'.format(pname))
-        # code = pattern.sub(";", clz_code)
-
-        i = 0
-        n = len(clz_code)
-
-        # curlybrace_cnt = 0
-        # code = ''
-
-        # while i < n:
-        #     if clz_code[i] == '{':
-        #         curlybrace_cnt += 1
-        #     elif clz_code[i] == '}':
-        #         if curlybrace_cnt:
-        #             code += ';'
-        #         curlybrace_cnt -= 1
-
-        #     if curlybrace_cnt == 0 and clz_code[i] != '}':
-        #         code += clz_code[i]
-            
-        #     i += 1
-
-        # return code
-
-        brace_cnt = 0
-        curlybrace_cnt = 0
-        code = ''
-
-        while i < n:
-            if brace_cnt == 0 and clz_code[i] == '{':
-                curlybrace_cnt += 1
-            elif brace_cnt == 0 and clz_code[i] == '}':
-                if curlybrace_cnt and brace_cnt == 0:
-                    code += ';'
-                curlybrace_cnt -= 1
-            elif clz_code[i] == '(':
-                brace_cnt += 1
-            elif clz_code[i] == ')':
-                brace_cnt -= 1
-
-            if curlybrace_cnt == 0 and clz_code[i] != '}':
-                code += clz_code[i]
-            
-            i += 1
-
-        return code
 
     # deprecated method: hard to get method with RegEx
     def __get_class_methods_regex(self, clz, code):
@@ -1099,12 +935,12 @@ class CppHeaderParser(SyntaxParser):
 
     def get_code_without_comment(self, url):
         return CppParser.get_code_only(url)
+
+    def get_loc(self, code):
+        return self.comm_cpp_parser.get_loc(code)
     
     def remove_comment(self, code):
-        code = re.compile("(?s)/\*.*?\*/").sub("", code)
-        code = re.compile("//.*").sub("", code)
-        code.strip()
-        return code
+        return self.comm_cpp_parser.remove_comment(code)
     
     def keep_only_doxygen_comment(self, code, doxy_start_patts):
         sections = []
@@ -1178,7 +1014,7 @@ class CppHeaderParser(SyntaxParser):
         """
         rules = cfg.get_rules()
         pos_line = self.get_line_pos(code)
-        get_each_class_code, clz_codes = self.get_each_class_code(code, pos_line)
+        get_each_class_code, clz_codes = self.get_each_class_code(code, True, pos_line)
         if not clz_codes:
             return None
 
@@ -1220,7 +1056,7 @@ class CppHeaderParser(SyntaxParser):
             {"class1" : {"public":[method1, method2], "protected":[method3]}, 
              "class2" : {"public":[method4, method5]}}
         """
-        get_each_class_code, clz_codes = self.get_each_class_code(code)
+        get_each_class_code, clz_codes = self.get_each_class_code(code, True)
         if not clz_codes:
             return None
 
@@ -1569,3 +1405,6 @@ class CppHeaderParser(SyntaxParser):
 
     def get_line_pos(self, code):
         return self.comm_cpp_parser.get_line_pos(code)
+
+    def get_each_class_code(self, code, code_remove=False, pos_line=None):
+        return self.comm_cpp_parser.get_each_class_code(code, True, pos_line)

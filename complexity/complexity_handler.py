@@ -99,7 +99,7 @@ class ComplexityAnalysisHandler(Cmd):
             for file, infos in files.items():
                 rows = []
                 for info in infos:
-                    row = []        
+                    row = []
                     row += ('{:<12s}', info.name),
                     row += ('{:<12d}', info.cplx),
                     row += ('{:<5s}',  info.level),
@@ -148,7 +148,6 @@ class ComplexityAnalysisHandler(Cmd):
                 continue
 
             #print('clz code = ', clz_codes[clz].code)
-
             clz_pos += (clz_codes[clz].start_pos, clz_codes[clz].end_pos),
 
         clz_pos.sort(key=lambda p: p[1], reverse=True)
@@ -177,12 +176,6 @@ class ComplexityAnalysisHandler(Cmd):
             method_codes += (method_name, code_blk),
 
         for method_name, code_blk in method_codes:
-            # print('>'*30)
-            # print('name = ', method_name)
-            # print(code_blk)
-            # print('>'*30)
-            # print()
-
             res += (method_name, handler(code_blk)),
 
         return res
@@ -193,7 +186,6 @@ class ComplexityAnalysisHandler(Cmd):
             print('no func info')
             return None
 
-        #code = parser.get_code(file)
         code = parser.get_code_lines(file)
         if not code:
             print('no code in file ', file)
@@ -208,12 +200,6 @@ class ComplexityAnalysisHandler(Cmd):
         for spelling, dispname, line, spos, epos, code_type in func_pos:
             func_code = code[spos:epos + 1]
             res += (spelling, handler(func_code)),
-            # print('-'*del_len)
-            # print(spelling, ' code = ', '@ ', line)
-            # print('-'*del_len)
-            # print(func_code)
-            # print('-'*del_len)
-            # print()
 
         return res
 
@@ -224,22 +210,13 @@ class ComplexityAnalysisHandler(Cmd):
         for spelling, dispname, line, sline, eline, code_type in func_infos:
             spos = parser.find_pos(pos_line, sline, -1)
             epos = parser.find_pos(pos_line, eline)
-            #print('func info')
-            #print(spelling, dispname)
-            # print(sline, eline)
-            # print(spos, epos)
-            #sys.exit()
 
             if spelling not in code:
                 continue
 
             if sline < eline and spos < epos:
-                # print(spelling)
-                # print(sline, eline)
-                # print('pos = ', spos, epos)
                 func_pos += (spelling, dispname, line, spos, epos, code_type),
 
-            #self.print_func_code(spelling, func_code, code_type)
         return func_pos
 
     def process_functions_with_raw(self, file, parser, handler):
@@ -261,26 +238,6 @@ class ComplexityAnalysisHandler(Cmd):
 
         return res
 
-        # code = parser.get_code(file);
-        # if not code:
-        #     print('no code in file ', file)
-        #     return None
-
-        # res = []
-        # for spelling, dispname, line, sline, eline in func_infos:
-        #     spos = parser.find_pos(pos_line, sline, -1)
-        #     epos = parser.find_pos(pos_line, eline)
-
-        #     #print(sline, eline)
-        #     #print('spos = ', spos)
-        #     #print('pos = ', spos, epos)
-        #     func_code = code[spos:epos + 1]
-        #     res += (spelling, handler(func_code)),
-
-        #     self.print_func_code(spelling, func_code)
-
-        # return res
-
     def print_methods_complexity(self, complexity_info):
         if not complexity_info:
             return
@@ -288,7 +245,6 @@ class ComplexityAnalysisHandler(Cmd):
             print('name = ', name, ', compl = ', complexity)
 
     def calc_cyclomatic(self, code):
-        #print('+')
         i = 0
         n = len(code)
         expr = ''
@@ -301,32 +257,25 @@ class ComplexityAnalysisHandler(Cmd):
             elif code[i] == '|' or code[i] == '&':
                 for letter in ['|', '&']:
                     if i + 1 < n and code[i + 1] == letter:
-                        #print('dete = ', code[i] + code[i + 1])
                         complexity += 1
                         expr = ''
                         i += 1
                     elif i - 1 >= 0 and code[i - 1] == letter:
-                        #print('dete = ', code[i - 1] + code[i])
                         complexity += 1
                         expr = ''
             elif ' ' != code[i] and not code[i].isalpha():
                 if expr and expr[-1].isalpha():
-                    #print('expr = ', expr)
                     if expr in branch_exprs:
-                        #print('dete = ', expr)
                         complexity += 1
                     expr = ''
             elif code[i].isalpha():
                 if expr and not expr[-1].isalpha():
-                    #print('expr = ', expr)
                     if expr in branch_exprs:
-                        #print('dete = ', expr)
                         complexity += 1
                     expr = ''
             elif code[i] == ' ':
                 if code[i - 1].isalpha():
                     if expr in branch_exprs:
-                        #print('dete = ', expr)
                         complexity += 1
                     expr = ''
 

@@ -27,12 +27,14 @@ class SyntaxParserFactory:
         types = []
         for ctor in SyntaxParserFactory.creator:
             types.append(ctor)
+
         return types
 
     @staticmethod
     def create(extension, ctx=None):
         if extension not in SyntaxParserFactory.creator:
             return None
+
         return SyntaxParserFactory.creator[extension](ctx)
 
     @staticmethod
@@ -40,4 +42,5 @@ class SyntaxParserFactory:
         res = {}
         for extension in extensions:
             res[extension] = SyntaxParserFactory.create(extension, ctx)
+
         return res
