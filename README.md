@@ -317,24 +317,6 @@ python main.py --cmd=call_dependency --ppath=D:\projects\ccnc\all\api --upath=d:
 
 &nbsp;
 
-# configuration
-
-'cfg_ca.conf' file has configurations regarding to the CA
-
-* type
-  * "cpp" : to execute the CA for C++ code
-* extensions
-  * specify file extension to check
-* rules
-  * rules to be executed
-* recursive
-  * designate if the operation is to be executed recursively or not
-* json_output
-  * set it true in order to create output file with the JSON formatted result
-
-&nbsp;
-
-
 ### 7. code complexity analysis
 
 * prerequisite on Linux
@@ -412,6 +394,22 @@ above 51: not testable, extremely high risk
 
 &nbsp;
 
+# configuration
+
+'cfg_ca.conf' file has configurations regarding to the CA
+
+* type
+  * "cpp" : to execute the CA for C++ code
+* extensions
+  * specify file extension to check
+* rules
+  * rules to be executed
+* recursive
+  * designate if the operation is to be executed recursively or not
+* json_output
+  * set it true in order to create output file with the JSON formatted result
+
+&nbsp;
 
 ## configration file
 cfg.conf
