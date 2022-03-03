@@ -1273,43 +1273,46 @@ class CppHeaderParser(SyntaxParser):
     
     def __doxygen_split_lines(self, code):
         lines = []
-        i = len(code) - 1
         start, end = -1, -1
+        code += ', END, ///< END\n'
+        #print('code. = ', code)
+        i = len(code) - 1
 
         comment_pos = []
-        for pattern in ["(?s)/\*.*?\*/", "//.*"]:
+        for pattern in ["(?s)/\*.*?\*/", "///<.*"]:
             pattern = re.compile(pattern)
-
             m = re.finditer(pattern, code)
-            m = list(m)
             
-            for item in m:
+            for item in list(m):
                 start, end = item.span()[0], item.span()[1]
                 comment_pos += (start, end),
         
-        if comment_pos:
-            comment_pos.sort(key=lambda p: p[0])
-            start, end = comment_pos.pop() # update end
+        if not comment_pos:
+            return []
+
+        comment_pos.sort(key=lambda p: p[0])
+        start, end = comment_pos.pop() # update end
 
         line = ''
         comment_inc = False
 
+        # last one do not have ',' (also can have ',') e.g., ITEM ///< .... 
+        # except the last one, it has ',' e.g., ITEM, ///< ...
+
         while i >= 0:
             if i == end:
                 lines.insert(0, line[::-1].strip())
-                line = ''
-
-                line += code[start: end + 1][::-1]
+                line = code[start: end + 1][::-1]
                 comment_inc = True
                 i = start - 1
                 if comment_pos:
                     start, end = comment_pos.pop()
                 continue
-
-            if code[i] == ',' and not comment_inc:
+            if code[i] == ',' and not comment_inc:   # for ..., ITEM, .... case
                 lines.insert(0, line[::-1].strip())
                 line = ''
                 i -= 1
+                continue
             
             if code[i] == ',' and comment_inc:
                 comment_inc = False
@@ -1319,10 +1322,6 @@ class CppHeaderParser(SyntaxParser):
             i -= 1
         
         lines.insert(0, line[::-1].strip())
-        # for line in lines:
-        #     print('------')
-        #     print(line)
-
         return lines
     
     def verify_doxycomment_enum(self, enum_code, enum_line, whole_code, pos_line, cfg):

@@ -33,8 +33,12 @@ class CppImplParser(SyntaxParser):
         self.comm_cpp_parser = CommonCppParser()
         if not PlatformInfo.is_Linux() and ctx:
             clang.cindex.Config.set_library_file(ctx)
-        self.target_cursors = {CursorKind.CONSTRUCTOR, 
-            CursorKind.DESTRUCTOR, CursorKind.CXX_METHOD, CursorKind.FUNCTION_DECL}
+        self.target_cursors = {
+            CursorKind.CONSTRUCTOR, 
+            CursorKind.DESTRUCTOR, 
+            CursorKind.CXX_METHOD, 
+            CursorKind.FUNCTION_DECL
+        }
         self.cursor_tbl = {
             CursorKind.DESTRUCTOR: CODE_TYPE.DESTRUCTOR,
             CursorKind.CONSTRUCTOR: CODE_TYPE.CONSTRUCTOR,
