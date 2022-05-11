@@ -31,10 +31,19 @@ class DependencyAnalysisHandler(Cmd):
             }
         }
 
+        delimiter = PlatformInfo.get_delimiter()
         cfg_reader = \
             DependencyConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
-            PlatformInfo.get_delimiter() + 'cfg_dependency.conf')
+            delimiter + 'cfg_dependency.conf')
         self.dep_cfg = cfg_reader.getConfig(cfg_reader.readAsJSON())
+
+        url = os.path.dirname(os.path.realpath(__file__)) + delimiter + 'dependency_info.json'
+        self.dep_infos = UtilFile.read_json(url)
+        whitelist = []
+        for category, items in self.dep_infos["whitelist"].items():
+            whitelist += items
+        self.white_list = set(whitelist)
+        self.core_components = self.dep_infos["core_components"]
 
         self.layer_depth = {
             'HMI_APP': 0,
@@ -102,13 +111,14 @@ class DependencyAnalysisHandler(Cmd):
         
         return location
 
-    def execute(self, opts, cfg):
+    def execute(self, opts, cfg) -> bool:
         locations = UtilFile.get_dirs_files_with_filter(opts["path"], \
             cfg.get_recursive(), ['pro'], ['CMakeLists.txt'])
         if not locations:
-            return False, None
+            return False
         
         locations = self.filter_files(locations)
+        errs = []
         
         prj = opts['prj']
         self.init(prj)
@@ -124,43 +134,48 @@ class DependencyAnalysisHandler(Cmd):
 
                 graph = None
                 if file_name in self.file_handlers:
+                    file_prj = 'default'
                     if prj in self.file_handlers[file_name]:
-                        graph = \
-                            self.file_handlers[file_name][prj].build_dep_graph(file)
-                    else:
-                        graph = \
-                            self.file_handlers[file_name]['default'].build_dep_graph(file)
+                        file_prj = prj
+                    graph = self.file_handlers[file_name][file_prj].build_dep_graph(file, self.white_list)
                 elif extension in self.ext_handlers:
-                    graph = \
-                        self.ext_handlers[extension].build_dep_graph(file, self.dep_cfg, prj)
+                    graph = self.ext_handlers[extension].build_dep_graph(file, self.dep_cfg, prj, self.white_list)
 
-                if graph:                    
+                if not graph:
+                    errs += file,
+
+                if graph:
                     self.merge_graph(dep_graph, graph)
                 #print()
 
+        # print('>>>>>>>>>>>>>>>')
+        # for err in errs:
+        #     print(err)
+        # sys.exit()
+
         graph = self.register_fan_ins(dep_graph)
         self.add_hmilib_dep(graph, cfg)
-        self.calc_stability(graph)
-
-        # print('+traverse')
-        self.traverse_graphs(graph)
-        # print()
-        # self.dump(graph)
-        # sys.exit()
 
         module_infos = {
             'LIB': self.get_api_module_names(graph)
         }
 
         self.file_handlers['CMakeLists.txt'][prj].replace_macro_dep(graph, module_infos)
+
+        self.calc_stability(graph)
+        
+        self.traverse_graphs(graph)
+        # print()
+        # self.dump(graph)
+        # sys.exit()
+
         links = self.get_links(graph)
         color_edges, node_to_id, id_to_node, violations = \
             self.create_edges(graph, links)
-        
-        self.print_dependency_violation(violations, graph, 'dependency violation')
-        self.print_instability(graph, 'instability')
-        self.print_instable_dep(graph, 'instable dependency')
 
+        self.print_dependency_violation(violations, graph, 'dependency violation')
+        self.print_instability(graph, self.white_list, 'instability')
+        self.print_instable_dep(graph, 'instable dependency')
 
         # plt.rc('font', **{'size':5})
         # plt.figure(figsize=(10, 4))
@@ -185,6 +200,7 @@ class DependencyAnalysisHandler(Cmd):
         node_to_id = collections.defaultdict(str)
         id_to_node = collections.defaultdict(int)
         violations = []
+        id = 0
 
         nodes = graph.keys()
         for id, node in enumerate(nodes):
@@ -208,32 +224,36 @@ class DependencyAnalysisHandler(Cmd):
         for u, v in links:
             edges += (node_to_id[u], node_to_id[v]),
         
-        base_apis = set(self.dep_cfg.get_base_apis())
         def_edge_color = self.dep_cfg.get_edge_color()
-        def_weight = 1
         color_edges = []
         cnt = 0
         tot = 0
+
         for uid, vid in edges:
             u = id_to_node[uid]
             v = id_to_node[vid]
             color = def_edge_color
-            weight = def_weight
 
             try:
-                if graph[v].type not in self.allowed_dep[graph[u].type]:
-                    if not ((graph[u].type in {'LIB', 'SVC', 'HAL'} and graph[v].type == 'LIB') \
-                        and v in base_apis):
-                        color = 'red'
-                        cnt += 1
-                        violations += (u, v),
+                violation_edge = None
+                if graph[v].type and graph[v].type not in self.allowed_dep[graph[u].type]:
+                    violation_edge = (u, v)
+
+                if v in self.core_components:
+                    violation_edge = None
+
+                if violation_edge:
+                    violations += (u, v),
+                    color = 'red'
+                    cnt += 1
+
             except:
                 print('type ERROR')
                 print(f'{graph[v].type} for {v}')
                 print(f'{graph[u].type} for {u}')
-            
-            tot += 1
+
             color_edges += (uid, vid, {'color': color}),
+            tot += 1
         
         if tot > 0:
             print(' * number of violations = {} / {} ({:.2f}%)'.format(cnt, tot, cnt/tot*100))
@@ -306,7 +326,7 @@ class DependencyAnalysisHandler(Cmd):
             print(info.fan_ins)
 
     def register_fan_ins(self, g):
-        etc_depth = max([info.depth for node, info in g.items()]) + 1
+        etc_depth = max([info.depth for node, info in g.items()] + [0]) + 1
 
         graph = copy.deepcopy(g)
         for u, info in g.items():
@@ -409,18 +429,21 @@ class DependencyAnalysisHandler(Cmd):
         UtilPrint.print_lines_with_custome_lens(' * stats: {}'.format(title), 
             col_widths, cols, rows)
     
-    def print_instability(self, graph, title=''):
+    def print_instability(self, graph, white_list, title=''):
         cols = ['name', 'in #', 'out #', 'I']
         rows = []
-        col_widths = [12, 5, 5, 5]
+        col_widths = [25, 5, 5, 5]
 
         for name, info in graph.items():
+            if name not in white_list:
+                continue
+
             if info.type not in self.allowed_dep:
                 # print(name + 'is not allowed type')
                 continue
 
             row = []
-            row += ('{:<12s}', name),
+            row += ('{:<20s}', name),
             row += ('{:<5d}', len(graph[name].fan_ins)),
             row += ('{:<5d}', len(graph[name].fan_outs)),
             row += ('{:.3f}', graph[name].instability),

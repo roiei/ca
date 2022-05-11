@@ -93,7 +93,7 @@ class NetworkX:
             out_cnt = len(g[id_to_node[id]].fan_outs)
             try:
                 title = id_to_node[id] + ' > in: {}, out: {}'.format(in_cnt, out_cnt)
-                title += ', s: {:.2f}'.format(g[id_to_node[id]].instability)
+                title += ', IS: {:.2f}'.format(g[id_to_node[id]].instability)
 
                 text(x, y, 
                     title, 

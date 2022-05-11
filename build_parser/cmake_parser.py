@@ -9,6 +9,7 @@ class CMakeBuildScriptParser:
     types = {
         "APP_NAME": ("APP", 2),         # app module level
         "LIB_NAME": ("LIB", 3),         # API module level
+        "api": ("LIB", 3),
         "SERVICE_NAME": ("SVC", 4),     # SVC module level
         "service": ("SVC", 4)
     }
@@ -69,6 +70,8 @@ class CMakeBuildScriptParser:
         return type, depth
 
     def _parse_outputname(self, line, g, url, content):
+        print('url = ', url)
+        print('line = ', line)
         sx = line.find('(')
         ex = line.rfind(')')
         if sx != -1 and sx < ex:
@@ -90,22 +93,29 @@ class CMakeBuildScriptParser:
         def parse_type_from_url(url):
             chunks = url.split('.')
             for chunk in chunks:
-                if chunk in ['service']:
+                if chunk in ['service', 'api', 'hal']:
                     return chunk
             return ''
         
         type_str = type_str.strip()
         name = name.strip()
-
-        if name in g:
-            print('name {} already exist'.format(name))
-            return
+        
+        # if name in g:
+        #     print('name {} already exist'.format(name))
+        #     return
 
         type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
-        
-        if not type_str or not type:
-            type_str = parse_type_from_url(url.split(PlatformInfo.get_delimiter())[-2])
-            type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
+
+        print('\ttype_str = ', type_str)
+        print('\ttype = ', type)
+
+        # if not type_str or not type:
+        #     type_str = parse_type_from_url(url.split(PlatformInfo.get_delimiter())[-2])
+        #     print('type in url = ', type_str)
+        #     type, depth = CMakeBuildScriptParser._get_module_info(type_str, name)
+
+        # print('1>> type_str = ', type_str)
+        # print('>> name = ', name)
 
         res_name = name
         if name.startswith('$'):
@@ -115,12 +125,12 @@ class CMakeBuildScriptParser:
             print('cmake:ERROR: could not find name = {}'.format(name), url)
             return
 
-        g[name] = ModuleInfo()
-        g[name].name = res_name
-        g[name].type = type
-        g[name].depth = depth
-        g[name].url = url
-        return res_name
+        print('\t2>> type_str = ', type_str)
+        print('\t2>> type = ', type)
+        print('\t>> name = ', name)
+        print('\t>> res_name = ', res_name)
+
+        return res_name, type, depth
 
     @staticmethod
     def _parse_dependency(line, g, param, url):
@@ -128,6 +138,10 @@ class CMakeBuildScriptParser:
         ex = line.rfind(')')
         content = line[sx + 1:ex].split()
         filtered = []
+
+        print('content-------------------------------')
+        print(content)
+        # sys.exit()
 
         for item in content:
             if item in {'${LIB_NAME}', 'PRIVATE', 
@@ -154,14 +168,15 @@ class CMakeBuildScriptParser:
 
             g[param].fan_outs.add(item)
 
-        # print(filtered)
-        # print(param, ' = ', g[param].fan_outs)
+        print('dep..')
+        print(filtered)
+        print(param, ' = ', g[param].fan_outs)
 
     pattern_handlers = {
-        'dependency':
+        'dependency_target_link':
             ('target_link_libraries\s*\([\w$\s{}+_]*\)',
             _parse_dependency.__func__),
-        'dependency':
+        'dependency_link_directories':
             ('link_directories\s*\([\w$\s{}+_]*\)',
             _parse_dependency.__func__)
     }
@@ -173,37 +188,93 @@ class CMakeBuildScriptParser:
         """
             add output module to the given graph
         """
-        for patt in ['project\s*\(\s*[a-zA-Z_]+\s*\)', 'set\([A-Z_]+\s+[._${}\w]+\)']:
-            pattern = re.compile(patt)
+        # for patt in ['project\s*\(\s*[a-zA-Z_]+\s*\)', 'set\([A-Z_]+\s+[._${}\w]+\)']:
+        #     pattern = re.compile(patt)
+        #     m = pattern.finditer(content)
+        #     for r in m:
+        #         span = r.span()
+        #         #print(content[span[0]:span[1]])
+        #         res = self._parse_outputname(
+        #             content[span[0]:span[1]], g, url, content)
+
+        #         if '' != res and None != res:
+        #             name, type, depth = res
+        #             g[name] = ModuleInfo()
+        #             g[name].name = name
+        #             g[name].type = type
+        #             g[name].depth = depth
+        #             g[name].url = url
+        #             res_name = name
+        #             return res_name
+
+        # return ''
+
+        def add_node(name, type_name, depth, url):
+            if name not in g:
+                g[name] = ModuleInfo()
+                g[name].name = name
+                g[name].type = type_str
+                g[name].depth = depth
+                g[name].url = url
+
+        res_name = None
+        type_str = ''
+        depth = -1
+
+        patterns = ['project\s*\(\s*[a-zA-Z_]+\s*\)', 'set\([A-Z_]+\s+[._${}\w]+\)']
+        for pattern in patterns:
+            pattern = re.compile(pattern)
             m = pattern.finditer(content)
             for r in m:
                 span = r.span()
-                #print(content[span[0]:span[1]])
-                res = self._parse_outputname(
-                    content[span[0]:span[1]], g, url, content)
+                res = self._parse_outputname(content[span[0]:span[1]], g, url, content)
+                if res:
+                    name, type_str, depth = res
 
-                if '' != res and None != res:
-                    return res
-        
+                    if name and type_str and depth > 0:
+                        res_name = name
+                        break
+
+            if res_name and type_str and depth > 0:
+                print('+ add node', name)
+                add_node(name, type_str, depth, url)
+                return res_name
+
+        # no type_str case
+        print('\t>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+        print('\tnot found!', res_name, type_str)
+        print('\t', url)
+        print()
+        print()
         return ''
 
-    def build_dep_graph(self, url):
+    # def _parse_outputname_from_url(self, url):
+    #     delimiter = PlatformInfo.get_delimiter()
+    #     url.split(delimiter)
+
+    def build_dep_graph(self, url, white_list):
         content = UtilFile.get_content(url)
         if not content:
-            return
+            return None
 
         g = collections.defaultdict(ModuleInfo)
         oname = self.add_output_module(g, content, url)
-        # print('cmake = ', oname)
+        #print('cmake oname = ', oname)
         # print('url = ', url)
 
         if '' == oname:
             print('UNDEF: url = ', url)
-            return
+            return None
+
+        if oname not in white_list:
+            print(f'{oname} is not in white_list')
+            return None
         
         for pname, value in CMakeBuildScriptParser.pattern_handlers.items():
             pattern_str, _handler = value
             pattern = re.compile(pattern_str)
+
+            print('patter = ', pname)
 
             m = pattern.finditer(content)
             for r in m:

@@ -1,0 +1,140 @@
+{
+    "ccos.app": {
+        "app::common": [
+            "ccos.app.common.appcommonshared", 
+            "ccos.app.common.commonguicomponents",
+            "ccos.app.common.commonguicomponents-2",
+            "ccos.app.common.hmiappcommon",
+            "ccos.app.common.managerappcommon",
+            "ccos.app.common.qml-plugin",
+            "ccos.app.common.widget-template",
+            "ccos.app.common.windowguicomponents"
+        ],
+        "app": [
+            "ccos.app.hmi.statusbarhmi",
+            "ccos.app.manager.statusbarmanager",
+            "ccos.app.manager.systemuimanager",
+            "ccos.app.manager.popupmanager",
+            "ccos.app.hmi.notificationhmi"
+        ],
+        "voice": [
+            "ccos.app.hmi.vrassistanthmi",
+            "ccos.app.hmi.vrhmi",
+            "ccos.app.manager.vrmanager"
+        ],
+        "intelligent": [
+            "ccos.app.hmi.globalsearchhmi",
+            "ccos.app.manager.retrievermanager"
+        ],
+        "accounts": [
+            "ccos.app.hmi.userprofilehmi",
+            "ccos.app.manager.profilesyncmanager"
+        ],
+        "navi": [
+            "ccos.app.hmi.navihmi"
+        ],
+        "information": [
+            "ccos.app.hmi.manualhmi",
+            "ccos.app.hmi.vehicleinfohmi",
+            "ccos.app.manager.infologcollectionmanager",
+            "ccos.app.manager.usagecollectionmanager",
+            "ccos.app.manager.vsmsyncmanager"
+        ],
+        "car": [
+            "ccos.app.hmi.chesshmi",
+            "ccos.app.hmi.myvehiclehmi",
+            "ccos.app.hmi.valetmodehmi",
+            "ccos.app.manager.vehiclestatemanager"
+        ],
+        "network": [
+            "ccos.app.hmi.ccshmi",
+            "ccos.app.manager.ccsmanager",
+            "ccos.app.manager.vsomeip-ets"
+        ],
+        "cloud": [
+            "ccos.app.hmi.cartohomehmi",
+            "ccos.app.hmi.climatehmi",
+            "ccos.app.hmi.locationsharinghmi",
+            "ccos.app.hmi.sportshmi",
+            "ccos.app.hmi.weatherhmi",
+            "ccos.app.manager.musicsearchmanager"
+        ],
+        "connectivity": [
+            "ccos.app.hmi.androidautohmi",
+            "ccos.app.hmi.carlifehmi",
+            "ccos.app.hmi.carplayhmi",
+            "ccos.app.hmi.phoneprojectionhmi",
+            "ccos.app.hmi.phonehmi"
+            
+        ],
+        "web": [],
+        "broadcast": [
+            "ccos.app.hmi.dmbhmi",
+            "ccos.app.hmi.euradiohmi",
+            "ccos.app.hmi.hddata",
+            "ccos.app.hmi.indiaradiohmi",
+            "ccos.app.hmi.naradiohmi",
+            "ccos.app.hmi.radiohmi",
+            "ccos.app.manager.broadcastservicemanager",
+            "ccos.app.manager.dmbservicemanager",
+            "ccos.app.manager.euradioservicemanager",
+            "ccos.app.manager.naradioservicemanager",
+            "ccos.app.manager.radioservicemanager"
+        ],
+        "media": [
+            "ccos.app.hmi.audiohmi",
+            "ccos.app.hmi.btaudiohmi",
+            "ccos.app.hmi.cinemostreaminghmi",
+            "ccos.app.hmi.podbbanghmi",
+            "ccos.app.hmi.mediagatehmi",
+            "ccos.app.hmi.seezntvhmi",
+            "ccos.app.hmi.soundofnaturehmi",
+            "ccos.app.hmi.streamingmusic",
+            "ccos.app.hmi.tvinghmi",
+            "ccos.app.hmi.usbmusichmi",
+            "ccos.app.hmi.usbvideohmi",
+            "ccos.app.hmi.videohmi",
+            "ccos.app.hmi.voicememohmi",
+            "ccos.app.hmi.youtubehmi",
+            "ccos.app.manager.earlysoundmanager",
+            "ccos.app.manager.mediagatemanager",
+            "ccos.app.manager.ttsmanager"
+
+        ],
+        "camera": [
+            "ccos.app.hmi.dashcamerahmi",
+            "ccos.app.hmi.extcamerahmi"
+        ],
+        "pay": [
+            "ccos.app.hmi.hipass"
+        ],
+        "update": [],
+        "safety": [
+            "ccos.app.hmi.ecallhmi",
+            "ccos.app.manager.authenticationmanager"
+        ],
+        "system": [
+            "ccos.app.hmi.homehmi",
+            "ccos.app.hmi.engineeringmodehmi",
+            "ccos.app.hmi.setuphmi",
+            "ccos.app.manager.setupmanager",
+            "ccos.app.hmi.splitscreenhmi",
+            "ccos.app.manager.appeventmanager"
+        ],
+        "view": [
+            "ccos.app.hmi.screenmirroringhmi",
+            "ccos.app.hmi.screenparticlehmi",
+            "ccos.app.hmi.screensaverhmi"
+        ],
+        "engineering": [
+            "ccos.app.manager.testautomationmanager"
+        ],
+        "etc": [
+            "ccos.app.hmi.qiblahmi",
+            "ccos.app.hmi.calculatorhmi",
+            "ccos.app.hmi.calendarhmi",
+            "ccos.app.hmi.carpayhmi",
+            "ccos.app.manager.ecumanager"
+        ]
+    }
+}

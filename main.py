@@ -4,24 +4,18 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-
-import os
-import sys
-from design_verification.verify import *
-from help_msg import *
-from config_reader import *
-#from boot_splash import *
-from option import *
-from util.time_tracker import *
-from comment.doxygen_comment_handler import *
-from design_verification.verify_handler import *
-from enu.enum_handler import *
-from dependency.dependency_analysis_handler import *
-from dependency.call_dependency_analysis_handler import *
-from generate_views.generate_views import *
-from complexity.complexity_handler import *
-from enu.loc_handler import *
-from util.platform_info import *
+from help_msg import HelpHandler
+from config_reader import ConfigReader, Config
+from option import get_opts
+from comment import DoxygenVerificationHandler
+from design_verification import CPPVerificationHandler
+from enu import EnumerateCPPMethodHandler, LoCHandler
+from dependency import DependencyAnalysisHandler, CallDependencyAnalysisHandler
+from generate_views import ViewGenerationHandler
+from complexity import ComplexityAnalysisHandler
+from util import PlatformInfo
+from util import TimeTracker, TimeElapseType
+from typing import Dict
 
 
 def override_cfg(cfg, opts):
@@ -58,7 +52,7 @@ cmd_handlers = {
     ),
     'dependency': (
         DependencyAnalysisHandler(),
-        '--cmd=dependency --path=./ --prj=prj  [--graph=True] [--node=node_name]'
+        '--cmd=dependency --path=./ --prj=prj  [--graph=True] [--node=node_name_to_highlight]'
     ),
     'call_dependency': (
         CallDependencyAnalysisHandler(),
@@ -91,11 +85,11 @@ def print_cmd_help(cmd_handlers):
     print('-'*50)
 
 
-def execute_handler(cmd, opts, cfg):
+def execute_handler(cmd: str, opts: Dict, cfg: Config) -> bool:
     if cmd not in cmd_handlers or not cmd:
         print('Not supported command \'{}\''.format(cmd))
         print_cmd_help(cmd_handlers)
-        return None
+        return False
 
     time_tracker = TimeTracker()
     time_tracker.set_time(cmd, TimeElapseType.START)
@@ -105,7 +99,7 @@ def execute_handler(cmd, opts, cfg):
     return res
 
 
-def execute(cmd, opts):
+def execute(cmd: str, opts: Dict) -> bool:
     delimeter = PlatformInfo.get_delimiter()
     cfg_reader = ConfigReader(os.path.dirname(os.path.realpath(__file__)) + \
         delimeter + 'config' + delimeter + 'cfg_csi.conf')

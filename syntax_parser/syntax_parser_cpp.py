@@ -3,7 +3,7 @@ from syntax_parser.syntax_parser_factory import *
 import collections
 from syntax_parser.search_patterns_cpp import *
 from config_reader import *
-from file_info_types import *
+from syntax_parser.file_info_types import ClassType
 from foundation.types import *
 from util.util_log import *
 from syntax_parser.cpp_parser import *
@@ -200,13 +200,8 @@ class CppImplParser(SyntaxParser):
         func_infos = []
         q = [(tu.cursor, 0)]
 
-        # for d in tu.diagnostics:
-        #     if d.severity >= 3:
-        #         print('Error:', d.spelling, d.location)
-
         while q:
             cursor, level = q.pop()
-            #print(level, cursor.kind, cursor.spelling, cursor.kind in self.target_cursors, cursor_file)
             cursor_file = cursor.location.file
 
             if cursor.kind in self.target_cursors:

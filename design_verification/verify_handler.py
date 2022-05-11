@@ -1,7 +1,9 @@
 from cmd_interface import *
-from util.util_file import *
-from syntax_parser.syntax_parser_factory import *
-from design_verification.verify import *
+from util import UtilFile, FileType
+from syntax_parser import SyntaxParserFactory
+from design_verification.verify import FileResult, Report
+import collections
+import typing
 
 
 def print_missing_rules(res_dirs, num_missings, cfg):
@@ -92,17 +94,17 @@ class CPPVerificationHandler(Cmd):
     def __init__(self):
         pass
 
-    def execute(self, opts, cfg):
+    def execute(self, opts: typing.Dict, cfg) -> bool:
         locations = UtilFile.get_dirs_files(opts["path"], \
             cfg.get_recursive(), cfg.get_recursive_depth(), cfg.get_extensions())
         if not locations:
-            return False, None
+            return False
 
         syntax_parsers = collections.defaultdict(None)
         syntax_parsers[FileType.CPP_HEADER] = SyntaxParserFactory.create('hpp')
         if not syntax_parsers[FileType.CPP_HEADER]:
             print('ERROR: not supported extension')
-            return False, None
+            return False
 
         coverage = opts['cover']
         syntax_parsers[FileType.CPP_HEADER].set_suffix_filter(cfg.get_suffix_filter_names())

@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "Code Analyzer"
+version = "0.1.0"
+description = "Code analysis Tool"
+authors = ["Roy"]
+
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+incremental = false
+
+
+[tool.isort]
+profile = "black"
+
+
+[tool.poetry.dependencies]
+python = "^3.9"
+matplotlib = "^3.5.2"
+numpy = "^1.22.3"
+clang = "^14.0"
+pandas = "^1.4.2"
+seaborn = "^0.11.2"
+
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

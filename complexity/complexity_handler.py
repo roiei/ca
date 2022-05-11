@@ -1,10 +1,12 @@
-from cmd_interface import *
-from util.util_file import *
-from syntax_parser.syntax_parser_factory import *
-from design_verification.verify import *
-from util.util_file import *
-from enum import Enum
-from util.util_print import *
+import os
+import collections
+import typing
+from cmd_interface import Cmd
+from syntax_parser import SyntaxParserFactory
+from config_reader import ConfigReader
+from util import UtilFile
+from util import PlatformInfo
+from util import UtilPrint
 
 
 class ComplexityInfo:
@@ -29,7 +31,7 @@ class ComplexityAnalysisHandler(Cmd):
     def __del__(self):
         pass
 
-    def execute(self, opts, cfg):
+    def execute(self, opts: typing.Dict, cfg) -> bool:
         depth = int(opts['depth']) if 'depth' in opts else None
 
         locations = UtilFile.get_dirs_files(opts["path"], \
@@ -38,8 +40,6 @@ class ComplexityAnalysisHandler(Cmd):
             return False, None
 
         parsers = SyntaxParserFactory.get_parsers(['cpp', 'hpp'], self.cfg["clang_lib_location"])
-
-        # self.cfg <- complexity_level
         levels = self.cfg['complexity_level']
 
         cplx_info = collections.defaultdict(lambda: collections.defaultdict(list))
@@ -73,7 +73,7 @@ class ComplexityAnalysisHandler(Cmd):
                     cplx_info[directory][file] += ComplexityInfo(name, complexity, level),
 
         self.print_complexity(cplx_info)
-        return True, None
+        return True
 
     def print_complexity(self, cplx_info):
         cols = ['func/method name', 'McCabe complexity', 'complexity level']

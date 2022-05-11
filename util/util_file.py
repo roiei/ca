@@ -1,9 +1,9 @@
 import os
 import collections
-import sys
-from enum import Enum
 import json
-from util.platform_info import *
+from enum import Enum
+from typing import List, Optional
+from util import PlatformInfo
 
 
 class ReturnType(Enum):
@@ -24,24 +24,17 @@ class FileType(Enum):
 
 
 class UtilFile:
-    def __init__(self):
-        pass
-
-    def __del__(self):
-        pass
-
     file_types = collections.defaultdict(None)
     file_names = collections.defaultdict(None)
 
     @staticmethod
     def find_subdirs(url, depth=None):
-        q = [(url, 0)]
+        q = collections.deque([(url, 0)])
         dirs = [url]
-
         limit = depth if depth else float('inf')
 
         while q:
-            url, depth = q.pop(0)
+            url, depth = q.popleft()
             try:
                 dir_names = os.listdir(url)
             except FileNotFoundError:
@@ -64,12 +57,12 @@ class UtilFile:
         if not extension_filter:
             return []
 
-        q = [(start_url, 0)]
+        q = collections.deque([(start_url, 0)])
         dirs = []
         limit = depth if depth else float('inf')
 
         while q:
-            url, depth = q.pop(0)
+            url, depth = q.popleft()
             try:
                 dir_names = os.listdir(url)
             except FileNotFoundError:
@@ -96,7 +89,6 @@ class UtilFile:
                     q += (full_url, depth + 1),
 
         res_dirs = UtilFile.get_all_subsequence_dirs(start_url, dirs)
-        #print('res_dirs = ', res_dirs)
         return dirs + res_dirs
 
     @staticmethod
@@ -140,10 +132,7 @@ class UtilFile:
         return UtilFile.file_types[extension]
 
     @staticmethod
-    def get_all_files(url, extension_filter):
-        """
-        find all the files to check
-        """
+    def get_all_files(url, extension_filter) -> Optional[List]:
         res = []
         try:
             file_list = os.listdir(url)
@@ -165,10 +154,7 @@ class UtilFile:
         return res
 
     @staticmethod
-    def get_all_files_with_filter(url, extension_filter, file_filter):
-        """
-        find all the files to check
-        """
+    def get_all_files_with_filter(url, extension_filter, file_filter) -> Optional[List]:
         res = []
         try:
             file_list = os.listdir(url)
@@ -195,7 +181,6 @@ class UtilFile:
         OUT
             {"dir1" : [("file1", type1), ("file2", type2)], "dir2" : ...}
         """
-        # get all the sub dires
         dirs = UtilFile.find_subdirs(url, depth) if is_resursive else [url]
         files = collections.defaultdict(list)
 
@@ -214,7 +199,6 @@ class UtilFile:
         OUT
             {"dir1" : [("file1", type1), ("file2", type2)], "dir2" : ...}
         """
-        # get all the sub dires
         dirs = UtilFile.find_subdirs(url) if is_resursive else [url]
         files = collections.defaultdict(list)
 
@@ -228,7 +212,7 @@ class UtilFile:
         return files
 
     @staticmethod
-    def filter_files(file_list, ext_to_handle = ['h', 'hpp']):
+    def filter_files(file_list, ext_to_handle = ['h', 'hpp']) -> Optional[List]:
         files_to_handle = []
         for file in file_list:
             ext = file.split('.')[-1].lower()
@@ -257,7 +241,7 @@ class UtilFile:
         return res
 
     @staticmethod
-    def get_dirs_files(directory, is_resursive, depth, extension_filter):
+    def get_dirs_files(directory, is_resursive, depth, extension_filter) -> collections.defaultdict:
         dirs = []
         if directory.startswith('[') and directory.endswith(']'):
             for dir in directory[1:-1].split(','):
@@ -268,9 +252,7 @@ class UtilFile:
         UtilFile.init_file_type()
         ret_dir_files = collections.defaultdict(list)
         for directory in dirs:
-            #print(directory)
             dir_files = UtilFile.get_files(directory, is_resursive, depth, extension_filter)
-
             for directory, files in dir_files.items():
                 ret_dir_files[directory] += files
 
@@ -281,13 +263,14 @@ class UtilFile:
         ret_dir_files = collections.defaultdict(list)
         dir_files = UtilFile.get_files_with_filter(
             directory, is_resursive, file_filter, extension_filter)
+
         for directory, files in dir_files.items():
             ret_dir_files[directory] += files
 
         return ret_dir_files
 
     @staticmethod
-    def get_content(url):
+    def get_content(url: str) -> Optional[str]:
         lines = None
         if os.path.isdir(url):
             return None
@@ -318,7 +301,7 @@ class UtilFile:
         return fp
 
     @staticmethod
-    def get_lines(url, lines, encoding='utf-8'):
+    def get_lines(url, lines, encoding='utf-8') -> ReturnType:
         fp = UtilFile.open_file(url, encoding)
         if not fp:
             return ReturnType.FILE_OPEN_ERR
@@ -326,7 +309,6 @@ class UtilFile:
         try:
             lines += fp.readlines()
         except UnicodeDecodeError as e:
-            #print('UnicodeDecodeError:', e, 'for ', url)
             fp.close()
             return ReturnType.UNICODE_ERR
 
@@ -334,7 +316,7 @@ class UtilFile:
         return ReturnType.SUCCESS
     
     @staticmethod
-    def save_as_file(url, data):
+    def save_as_file(url, data) -> bool:
         try:
             with open(url, 'w') as fp:
                 fp.write(data)
@@ -360,3 +342,7 @@ class UtilFile:
 
         return tokens[-1]
 
+    @staticmethod
+    def read_json(url):
+        with open(url) as fp:
+            return json.load(fp)

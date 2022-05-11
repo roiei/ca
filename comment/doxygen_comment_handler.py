@@ -2,15 +2,18 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from cmd_interface import *
-from util.util_file import *
-from util.util_print import *
-from syntax_parser.syntax_parser_factory import *
+from cmd_interface import Cmd
+from util import UtilFile, FileType
+from util import UtilPrint
+from syntax_parser import SyntaxParserFactory
+from foundation import RetType
 import matplotlib.pyplot as plt
 import matplotlib
+import collections
 import random
 import pandas as pd
 import seaborn as sbn
+import typing
 
 
 class DoxygenErrorStats:
@@ -31,20 +34,20 @@ class DoxygenVerificationHandler(Cmd):
         }
 
     def __del__(self):
-        pass
+        ...
 
-    def execute(self, opts, cfg):
+    def execute(self, opts: typing.Dict, cfg) -> bool:
         locations = UtilFile.get_dirs_files(opts["path"], \
             cfg.get_recursive(), cfg.get_recursive_depth(), cfg.get_extensions())
         if not locations:
-            return False, None
+            return False
 
         enum_rules = cfg.get_enum_rules()
         parsers = collections.defaultdict(None)
         parsers[FileType.CPP_HEADER] = SyntaxParserFactory.create('hpp')
         if not parsers[FileType.CPP_HEADER]:
             print('ERROR: not supported extension')
-            return False, None
+            return False
 
         err_stats = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
         stat = DoxygenErrorStats()
@@ -104,7 +107,7 @@ class DoxygenVerificationHandler(Cmd):
         return 0 == tot_err
     
     def __check_enum(self, parser, directory, file, whole_code, pos_line, dir_errs, \
-            stat, err_stats, cfg):
+            stat, err_stats, cfg) -> int:
         num_items = 0
         non_clz_code = parser.get_non_class_code(whole_code)
         enum_codes = parser.get_enum_codes(non_clz_code, whole_code, pos_line)
@@ -139,7 +142,7 @@ class DoxygenVerificationHandler(Cmd):
         return num_items
     
     def __check_method(self, parser, directory, file, whole_code, pos_line, dir_errs, \
-            stat, err_stats, cfg):
+            stat, err_stats, cfg) -> int:
         num_items = 0
         clz_idxs, clz_codes = parser.get_each_class_code(whole_code)
 
@@ -229,7 +232,6 @@ class DoxygenVerificationHandler(Cmd):
         cols = ['# dirs', '# class', '# items', '# err', 'err %', \
             '# method', '# err method', \
             'err method %']
-        #cols = ['dir name', 'class name', '# err']
         rows = []
         col_widths = [6, 9, 7, 5, 6, 8, 12, 12]
         tot_num_dir = len(err_stats.keys())
@@ -329,8 +331,6 @@ class DoxygenVerificationHandler(Cmd):
             label='median: ' + '{:.2f} %'.format(data['Mu'].median()))
         plt.axvline(data['Mu'].mean(), color='red', ls=':', \
             label='mean: ' + '{:.2f} %'.format(data['Mu'].mean()))
-        #plt.legend(loc=2)
-        #plt.legend(('envelop', 'median', 'mean', 'err %'))
         plt.legend()
         plt.show()
 
@@ -356,9 +356,13 @@ class DoxygenVerificationHandler(Cmd):
 
         explode = len(values)*[0.05]
 
-        color_tbl = ['#ff9999', '#ffc000', '#8fd9b6', \
-            '#d395d0', 'blue', 'red', 'magenta', 'yellow', 'cyan', \
-            'purple', 'pink', 'olive', 'green', 'blue', 'brown']
+        color_tbl = [ \
+            '#ff9999', '#ffc000', '#8fd9b6', \
+            '#d395d0', 'blue', 'red', \
+            'magenta', 'yellow', 'cyan', \
+            'purple', 'pink', 'olive', \
+            'green', 'blue', 'brown']
+
         colors = [random.choice(color_tbl) for i in range(len(labels))]
 
         labels, ratios = zip(*values)
@@ -367,7 +371,3 @@ class DoxygenVerificationHandler(Cmd):
             startangle=260, counterclock=False, \
             explode=explode, shadow=True, colors=colors)
         plt.show()
-
-
-
-

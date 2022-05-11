@@ -69,7 +69,7 @@ class ProBuildScriptParser:
         content = re.compile("#.*").sub("", content)
         return content
 
-    def build_dep_graph(self, url, dep_cfg, prj):
+    def build_dep_graph(self, url, dep_cfg, prj, white_list):
         prefix = dep_cfg.get_prefix()['app'][prj]
         if prefix not in url:
             return None
@@ -83,6 +83,10 @@ class ProBuildScriptParser:
         oname = self.add_output_module(g, content, url)
 
         if '' == oname:
+            return
+
+        if oname not in white_list:
+            print(f'{oname} is not in white_list')
             return
 
         for pname, value in ProBuildScriptParser.pattern_handlers.items():

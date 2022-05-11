@@ -1,0 +1,1 @@
+from .generate_views import ViewGenerationHandler

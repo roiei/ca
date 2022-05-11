@@ -1,14 +1,17 @@
 import re
-from syntax_parser.syntax_parser_factory import *
+import os
+import sys
 import collections
-from syntax_parser.search_patterns_cpp import *
-from common.tries import *
-from config_reader import *
-from file_info_types import *
-from foundation.types import *
-from util.util_log import *
-from syntax_parser.cpp_parser import *
-from syntax_parser.syntax_parser_cpp_com import *
+from common import Trie
+from config_reader import ConfigReader
+from syntax_parser.file_info_types import ClassType
+from foundation import RetType
+from util import Logger, PlatformInfo
+from util import UtilFile, ReturnType
+from syntax_parser.cpp_parser import CppParser
+from syntax_parser.search_patterns_cpp import SearchPatternCpp
+from syntax_parser.syntax_parser_cpp_com import CommonCppParser
+from syntax_parser.syntax_parser_factory import *
 
 
 logger = Logger(False)
@@ -542,11 +545,6 @@ class CppHeaderParser(SyntaxParser):
                 ex = m.span()[1]
                 expr = expr[sx:ex].strip()
 
-                # print('expr2 = ', expr)
-                # print('ignore_deleted = ', ignore_deleted)
-                # print('delete_pattern.search(expr) = ', delete_pattern.search(expr))
-                # print()
-
                 delete_found = delete_pattern.search(expr)
 
                 if (not ignore_deleted and delete_found) or not delete_found:
@@ -660,7 +658,6 @@ class CppHeaderParser(SyntaxParser):
         """
         OUT
             {"pattern1":False, "pattern2":True, ...}
-
             case 1 w/ regular member function after special member function
             ...
             [special member function, line, True]  <- marked 'True'

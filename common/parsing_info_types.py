@@ -7,3 +7,4 @@ class CODE_TYPE(Enum):
     CONSTRUCTOR = 2
     DESTRUCTOR = 3
     METHOD = 4
+

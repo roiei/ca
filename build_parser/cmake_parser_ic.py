@@ -203,7 +203,7 @@ class CMakeBuildScriptParserIC:
         
         return res, oname
 
-    def build_dep_graph(self, url):
+    def build_dep_graph(self, url, white_list):
         content = UtilFile.get_content(url)
         if not content:
             return
@@ -213,6 +213,10 @@ class CMakeBuildScriptParserIC:
 
         if '' == oname:
             #print('UNDEF: url = ', url)
+            return
+
+        if oname not in white_list:
+            print(f'{oname} is not in white_list')
             return
         
         for pname, value in CMakeBuildScriptParserIC.pattern_handlers.items():

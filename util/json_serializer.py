@@ -52,15 +52,4 @@ class JSonSerializer:
 
             dirs[d] = out_files
 
-        # print(dirs)
-        # for d, files in dirs.items():
-        #     print('dir.', d)
-        #     for file, clzs in files.items():
-        #         print('file = ', file)
-        #         for clz, vios in clzs.items():
-        #             print('clz = ', clz)
-        #             for vio in vios:
-        #                 print(vio)
-        #     print()
-
         return dirs
