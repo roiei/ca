@@ -411,7 +411,7 @@ above 51: not testable, extremely high risk
 
 &nbsp;
 
-## configration file
+## configuration file
 cfg.conf
 ```JSON
 {
