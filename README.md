@@ -267,7 +267,7 @@ call_dependency
 call dependency
 
 #### usage
-python main.py --cmd=call_dependency --ppath=D:\projects\ccnc\all\api --upath=d:\projects\ccnc\all\app --savefile=ccos_methods.dat
+python main.py --cmd=call_dependency --ppath=D:\projects\ccn\all\api --upath=d:\projects\ccn\all\app --savefile=cos_methods.dat
 
 &nbsp;
 
