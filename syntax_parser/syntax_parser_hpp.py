@@ -2,6 +2,8 @@ import re
 import os
 import sys
 import collections
+import logging
+from typing import Any
 from common import Trie
 from config_reader import ConfigReader
 from syntax_parser.file_info_types import ClassType
@@ -19,23 +21,16 @@ logger = Logger(False)
 
 class ClassCodeInfo:
     def __init__(self):
-        self.code = ''
-        self.start_line = 0
-        self.start_offset = 0
-        self.nested = False
+        self.code: str = ''
+        self.start_line: int = 0
+        self.start_offset: int = 0
+        self.nested: bool = False
 
 
 class CppHeaderParser(SyntaxParser):
-    def __init__(self, name, ctx=None):
+    def __init__(self, name: str, ctx: Optional[Any]=None) -> None:
         super().__init__(name)
-        deli = PlatformInfo.get_delimiter()
-        self.cfg_reader = ConfigReader(
-            os.path.dirname(os.path.realpath(__file__)) + 
-            deli + '..' + deli  + 'config' + deli  + 'cfg_cpp.conf')
-        self.cfg_json = self.cfg_reader.readAsJSON()
-        if None == self.cfg_json:
-            sys.exit('wrong configuration file!')
-        self.ignore_class_name = self.cfg_json['ignore_class_name']
+        self._init_config()
         self.modifiers = set(self.cfg_json['modifiers'])
         self.rule_funcs = {
             "rof": self.__check_rof,
@@ -76,10 +71,20 @@ class CppHeaderParser(SyntaxParser):
         for word in words:
             self.access_modifiers.insert(word)
 
+    def _init_config(self) -> None:
+        deli = PlatformInfo.get_delimiter()
+        self.cfg_reader = ConfigReader(
+            os.path.dirname(os.path.realpath(__file__)) + 
+            deli + '..' + deli  + 'config' + deli  + 'cfg_cpp.conf')
+        self.cfg_json = self.cfg_reader.readAsJSON()
+        if not self.cfg_json:
+            sys.exit('wrong configuration file!')
+        self.ignore_class_name = self.cfg_json['ignore_class_name']
+
     def __del__(self):
         super().__del__()
 
-    def __get_class_name_from_file(self, file):
+    def __get_class_name_from_file(self, file: str) -> str:
         pattern_name, pattern = SearchPatternCpp.get_pattern_class_name()
         class_name = []
 
@@ -97,7 +102,7 @@ class CppHeaderParser(SyntaxParser):
 
         return class_name
 
-    def get_non_class_code(self, code):
+    def get_non_class_code(self, code: str) -> str:
         pattern_name, pattern = SearchPatternCpp.get_pattern_find_class_start()
         sections = []
         non_clz_code = code
@@ -135,10 +140,10 @@ class CppHeaderParser(SyntaxParser):
 
         return non_clz_code
 
-    def is_word_startwith(self, word):
+    def is_word_startwith(self, word: str) -> bool:
         return self.access_modifiers.starts_with(word)
 
-    def get_enum_codes(self, code, whole_code, pos_line):
+    def get_enum_codes(self, code: str, whole_code: str, pos_line: int) -> str:
         """
         OUT:
             {"class1":"code1", "class2":"code2"}
@@ -176,7 +181,7 @@ class CppHeaderParser(SyntaxParser):
     def __get_class_methods_regex(self, clz, code):
         pname, pattern = SearchPatternCpp.get_pattern_methods()
         if not pattern:
-            print('ERROR: pattern for {} is not found'.format(pname))
+            logging.error('ERROR: pattern for {} is not found'.format(pname))
             return
 
         m = pattern.finditer(code)
@@ -190,15 +195,15 @@ class CppHeaderParser(SyntaxParser):
             self.mod_trie.insert(mod[::-1])
 
     def __print_class_methods(self, clz, access_mod):
-        print('class = ', clz)
+        logging.debug('class = %s', clz)
         for mod in access_mod:
             if not access_mod[mod]:
                 continue
 
-            print('modifier = ', mod, ', num = ', len(access_mod[mod]))
+            logging.debug('modifier = %s, num = %d', mod, len(access_mod[mod]))
             for method in access_mod[mod]:
-                print('\tmethod = ', method)
-            print()
+                logging.debug('\tmethod = %s', method)
+            logging.debug()
 
     def __remove_whitespace_between_delimeter(self, expr, opn, close):
         n = len(expr)
@@ -509,7 +514,7 @@ class CppHeaderParser(SyntaxParser):
         access_mod = collections.defaultdict(list)
         pname, pattern_method = SearchPatternCpp.get_pattern_methods()
         if not pattern_method:
-            print('ERROR: pattern for {} is not found'.format(pname))
+            logging.error('ERROR: pattern for {} is not found'.format(pname))
             return
         
         _, delete_pattern = SearchPatternCpp.get_deleted_method_pattern()
@@ -609,7 +614,7 @@ class CppHeaderParser(SyntaxParser):
         clz_type = ClassType.REGULAR
         pname, pattern = SearchPatternCpp.get_pattern_pure_virtualfunc()
         if not pattern:
-            print('ERROR: pattern for {} is not found'.format(pname))
+            logging.error('ERROR: pattern for {} is not found'.format(pname))
             return
 
         has_interface_name = clz.startswith('I')
@@ -624,7 +629,7 @@ class CppHeaderParser(SyntaxParser):
 
         pname, pattern = SearchPatternCpp.get_pattern_singleton()
         if not pattern:
-            print('ERROR: pattern for {} is not found'.format(pname))
+            logging.error('ERROR: pattern for {} is not found'.format(pname))
             return
 
         m = pattern.search(clz_code)
@@ -782,7 +787,7 @@ class CppHeaderParser(SyntaxParser):
             try:
                 namespace, keyword = keyword.split('::')
             except ValueError:
-                print('Keyword error: f{keyword} please add \'::\' adead of keyword')
+                logging.error('Keyword error: f{keyword} please add \'::\' adead of keyword')
                 continue
 
             ret = self.__check_keyword(namespace, keyword, clz_methods)
@@ -889,7 +894,7 @@ class CppHeaderParser(SyntaxParser):
 
         method_chunks = method_name.split()
         if not method_chunks:
-            print('No method name for ', method_chunks)
+            logging.warning('No method name for {}'.format(method_chunks))
             return ''
 
         try:
@@ -899,9 +904,9 @@ class CppHeaderParser(SyntaxParser):
             else:
                 method_name = method_chunks[-1] 
         except IndexError:
-            print('exit... index err @ method: ', method_name)
-            print(method_chunks)
-            print(method, sx, ex)
+            logging.error('exit... index err @ method: %s', method_name)
+            logging.error(method_chunks)
+            logging.error(method, sx, ex)
             sys.exit()
 
         return method_name
@@ -987,7 +992,7 @@ class CppHeaderParser(SyntaxParser):
 
         pname, pattern = SearchPatternCpp.get_pattern_methods()
         if not pattern:
-            print('ERROR: pattern for {} is not found'.format(pname))
+            logging.error('ERROR: pattern for {} is not found'.format(pname))
             return
 
         m = pattern.search(code)
@@ -1032,7 +1037,7 @@ class CppHeaderParser(SyntaxParser):
                     continue
 
                 if rule not in self.rule_funcs:
-                    print('Not supported rule.')
+                    logging.warning('Not supported rule.')
                     continue
 
                 done = self.rule_funcs[rule](clz, clz_type, clz_codes, clz_methods, pos_line, cfg)
@@ -1173,7 +1178,7 @@ class CppHeaderParser(SyntaxParser):
 
                 sdoxy = code[:scode].rfind('/\*\*')
 
-                print(code[sdoxy:scode])
+                logging.error(code[sdoxy:scode])
                 sys.exit()
 
 
@@ -1347,7 +1352,6 @@ class CppHeaderParser(SyntaxParser):
         
             wo_comment = self.remove_comment(chunk)
             wo_comment = list(filter(lambda p: p.strip() != '', wo_comment.split(',')))
-            #print('wo_comment = ', wo_comment)
 
             if len(wo_comment) > 1:
                 errs += (offset_lines + enum_line + 1 + i, '\'' + chunk + '\'' + \
@@ -1381,9 +1385,6 @@ class CppHeaderParser(SyntaxParser):
             
             enum_val = self.get_num_str(enum_val)
 
-            # print('enum = ', enum_val)
-            # print('commt = ', comment)
-
             if (not comment and enum_val) and enum_val not in guard_keywords:
                 errs += (offset_lines + enum_line + i, '\'' + chunk + '\'' + \
                     'is not documented'),
@@ -1394,7 +1395,7 @@ class CppHeaderParser(SyntaxParser):
         lines = []
         res = UtilFile.get_lines(file, lines)
         if ReturnType.SUCCESS != res:
-            print("ERROR: get_lines")
+            logging.error("ERROR: get_lines")
             return None
 
         return ''.join(lines)
